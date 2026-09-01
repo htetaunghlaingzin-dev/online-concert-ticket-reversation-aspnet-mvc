@@ -13,12 +13,27 @@ An ASP.NET Core MVC app for browsing concerts, picking seats on a live seat map,
 ## Prerequisites
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- A SQL Server instance reachable at `localhost:1433` (see below for Docker)
+- A SQL Server instance reachable at `localhost:1433` — a local install (see below) or Docker (optional)
 - The EF Core CLI tool: `dotnet tool install --global dotnet-ef`
 
 ## 1. Get a database running
 
-The connection string in `appsettings.json` expects SQL Server on `localhost:1433` with user `sa` / password `root@123`. Easiest way to get that locally with Docker:
+The connection string in `appsettings.json` expects SQL Server on `localhost:1433` with user `sa` / password `root@123`. Use whichever of these fits your setup:
+
+### Option A: Local SQL Server install (default expectation)
+
+If you already have SQL Server running locally (Developer/Express edition on Windows, or an existing instance elsewhere), just make sure it matches what the app expects:
+
+- **Mixed Mode Authentication** is enabled (so SQL logins like `sa` work, not just Windows auth) — set this during install, or change it later via SQL Server Configuration Manager / SSMS.
+- The **`sa` login is enabled** with password `root@123` — or set your own password and update `ConnectionStrings:DefaultConnection` in `OnlineConcertTicketingReservationSystem/appsettings.json` to match.
+- **TCP/IP is enabled on port 1433** (SQL Server Configuration Manager → SQL Server Network Configuration → Protocols) and the SQL Server (and SQL Server Browser) service is running.
+- Don't have SQL Server yet? Grab the free [Developer edition](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) (Windows). On macOS/Linux there's no native SQL Server install — use Option B (Docker) instead.
+
+If your instance runs on a different host/port or uses different credentials, just edit `ConnectionStrings:DefaultConnection` in `appsettings.json` (or override it with a `Development`-scoped `appsettings.Development.json` / user-secrets so you don't touch the committed file).
+
+### Option B: Docker (optional, cross-platform)
+
+No local SQL Server install needed — spin up a disposable instance with the same credentials the app expects:
 
 ```bash
 docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=root@123" \
@@ -27,8 +42,6 @@ docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=root@123" \
 ```
 
 (Any SQL Server 2019+ compatible image works — `mcr.microsoft.com/mssql/server` is fine too. Apple Silicon users should stick with `azure-sql-edge`, which has an arm64 image.)
-
-If you'd rather point at your own SQL Server instance, edit `ConnectionStrings:DefaultConnection` in `OnlineConcertTicketingReservationSystem/appsettings.json` (or override it with a `Development`-scoped `appsettings.Development.json` / user-secrets so you don't touch the committed file).
 
 ## 2. Restore & build
 
@@ -127,5 +140,5 @@ wwwroot/       CSS, JS, vendored libs (Bootstrap/jQuery/SignalR client), uploade
 ## Troubleshooting
 
 - **"Failed to determine the https port for redirect"** in the console on startup — harmless in local dev; only relevant if you're not running the `https` launch profile.
-- **Can't connect to SQL Server** — confirm the container/instance is up and listening on `1433`, and that the password in `appsettings.json` matches what you started SQL Server with.
+- **Can't connect to SQL Server** — confirm the instance (local install or Docker container) is running and listening on `1433`, that Mixed Mode Authentication + the `sa` login are enabled if using a local install, and that the password in `appsettings.json` matches.
 - **Migration/model mismatch errors** — run `dotnet ef database drop -f` followed by `dotnet run` to rebuild from scratch (see step 4).
