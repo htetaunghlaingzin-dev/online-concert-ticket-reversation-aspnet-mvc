@@ -1,0 +1,48 @@
+@model OnlineConcertTicketingReservationSystem.Models.Order
+@{
+    ViewData["Title"] = "Confirmation";
+}
+
+<div class="confirm-banner">
+    <div class="eyebrow">Booking confirmed</div>
+    <h2>You're going to @Model.Concert.Title 🎉</h2>
+    <p class="mb-0 text-white-50">Order #@Model.Id · Status: <strong>@Model.Status</strong> · Total paid: $@Model.TotalAmount.ToString("N2")</p>
+</div>
+
+@if (Model.Tickets.Count > 0)
+{
+    <h4>Your tickets</h4>
+    <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+    @foreach (var ticket in Model.Tickets)
+    {
+        <div class="col">
+            <div class="section-card mb-0 ticket-qr-card">
+                <div>
+                    <p class="mb-1 text-white-50">Seat</p>
+                    <h5 class="mb-1">@ticket.Seat.Section-@ticket.Seat.Row-@ticket.Seat.SeatNumber</h5>
+                    <code>@ticket.TicketCode</code>
+                </div>
+                <img width="96" height="96" src="@Url.Action("Qr", "Ticket", new { id = ticket.Id })" alt="Ticket QR code" />
+            </div>
+        </div>
+    }
+    </div>
+}
+
+@if (Model.OrderAccessories.Count > 0)
+{
+    <div class="section-card mb-4">
+        <h5>Merchandise</h5>
+        <ul class="list-group">
+        @foreach (var oa in Model.OrderAccessories)
+        {
+            <li class="list-group-item">@oa.Accessory.Name x@oa.Quantity <span class="text-white-50">($@oa.UnitPrice.ToString("N2") each)</span></li>
+        }
+        </ul>
+    </div>
+}
+
+<div class="d-flex gap-2">
+    <a asp-controller="Ticket" asp-action="MyTickets" class="btn btn-primary">View my tickets</a>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light">Back to home</a>
+</div>

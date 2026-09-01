@@ -1,0 +1,108 @@
+@using OnlineConcertTicketingReservationSystem.Models.Enums
+@model OnlineConcertTicketingReservationSystem.Models.ViewModels.OrderDetailViewModel
+@{ ViewData["Title"] = $"Order #{Model.Id}"; }
+<div class="page-head">
+    <h1>Order #@Model.Id</h1>
+    <span class="status-pill status-@Model.Status">@Model.Status</span>
+</div>
+
+@if (ViewBag.Message is string message)
+{
+    <div class="alert alert-info">@message</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="section-card">
+            <h4>@Model.ConcertTitle</h4>
+            <p class="text-white-50 mb-1">@Model.UserName · @Model.UserEmail</p>
+            <p class="text-white-50 mb-3">Placed @Model.CreatedAt.ToLocalTime().ToString("g")</p>
+
+            <h6>Tickets</h6>
+            @if (Model.Tickets.Count == 0)
+            {
+                <p class="text-white-50">No tickets issued for this order yet.</p>
+            }
+            else
+            {
+                <ul class="list-group mb-3">
+                @foreach (var t in Model.Tickets)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span>Seat @t.SeatLabel <code class="ms-2">@t.TicketCode</code> <span class="text-white-50">($@t.Price.ToString("N2"))</span></span>
+                            @if (t.Revoked)
+                            {
+                                <span class="status-pill status-Cancelled">Revoked</span>
+                            }
+                            else if (Model.Status == OrderStatus.Confirmed)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#revoke-ticket-@t.Id">
+                                    Revoke this ticket
+                                </button>
+                            }
+                        </div>
+                        @if (t.Revoked && !string.IsNullOrEmpty(t.RevocationReason))
+                        {
+                            <p class="text-white-50 small mb-0 mt-1">Reason: @t.RevocationReason</p>
+                        }
+                        @if (!t.Revoked && Model.Status == OrderStatus.Confirmed)
+                        {
+                            <div class="collapse mt-2" id="revoke-ticket-@t.Id">
+                                <form asp-action="RevokeTicket" method="post" data-confirm="Revoke seat @t.SeatLabel and release it back to sale? This cannot be undone.">
+                                    <input type="hidden" name="OrderId" value="@Model.Id" />
+                                    <input type="hidden" name="TicketId" value="@t.Id" />
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" name="Reason" class="form-control" placeholder="Reason for revoking this ticket" required />
+                                        <button type="submit" class="btn btn-danger">Confirm revoke</button>
+                                    </div>
+                                </form>
+                            </div>
+                        }
+                    </li>
+                }
+                </ul>
+            }
+
+            @if (Model.AccessorySummaries.Count > 0)
+            {
+                <h6>Merchandise</h6>
+                <ul class="list-group mb-3">
+                @foreach (var a in Model.AccessorySummaries)
+                {
+                    <li class="list-group-item">@a</li>
+                }
+                </ul>
+            }
+
+            <p class="fw-bold fs-5">Total: $@Model.TotalAmount.ToString("N2")</p>
+
+            @if (!string.IsNullOrEmpty(Model.TransactionRefId)) { <p><strong>Transaction ref:</strong> @Model.TransactionRefId</p> }
+            @if (!string.IsNullOrEmpty(Model.RejectionReason)) { <p class="text-danger"><strong>Rejection reason:</strong> @Model.RejectionReason</p> }
+            @if (!string.IsNullOrEmpty(Model.CancellationReason))
+            {
+                <p class="text-danger"><strong>Cancellation reason:</strong> @Model.CancellationReason<br /><small class="text-white-50">Cancelled @Model.CancelledAt?.ToLocalTime().ToString("g")</small></p>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        @if (Model.Status == OrderStatus.Confirmed)
+        {
+            <div class="section-card">
+                <h5>Cancel entire order</h5>
+                <p class="text-white-50 small">This releases every seat back to sale, restocks any merchandise, marks the payment as refunded, and invalidates all QR tickets in this order. This cannot be undone. To pull out a single ticket instead, use "Revoke this ticket" next to it.</p>
+                <form asp-action="CancelOrder" method="post" data-confirm="Cancel order #@Model.Id and release all its seats? This cannot be undone.">
+                    <input type="hidden" name="OrderId" value="@Model.Id" />
+                    <div class="mb-2">
+                        <textarea name="Reason" class="form-control" rows="3" placeholder="Reason for cancellation (shown to the customer)" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-outline-danger w-100">Cancel order & refund</button>
+                </form>
+            </div>
+        }
+        <div class="section-card">
+            <a asp-action="Orders" class="btn btn-outline-light w-100">Back to orders</a>
+        </div>
+    </div>
+</div>

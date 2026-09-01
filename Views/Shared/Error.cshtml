@@ -1,0 +1,19 @@
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="auth-shell">
+    <div class="section-card">
+        <div class="eyebrow">Something went wrong</div>
+        <h2>An error occurred</h2>
+        <p class="subtitle">Please try again, or head back to the home page.</p>
+
+        @if (Model.ShowRequestId)
+        {
+            <p class="text-white-50 small">Request ID: <code>@Model.RequestId</code></p>
+        }
+
+        <a asp-controller="Home" asp-action="Index" class="btn btn-primary w-100">Back to home</a>
+    </div>
+</div>

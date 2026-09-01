@@ -1,0 +1,18 @@
+@model OnlineConcertTicketingReservationSystem.Models.PaymentTransaction
+@{ ViewData["Title"] = "Mock Payment Gateway"; }
+
+<div class="payment-shell">
+    <div class="section-card">
+        <span class="badge text-bg-warning mb-3">Development gateway · no real charge</span>
+        <h2>Mock Payment</h2>
+        <p class="text-white-50 mb-1">Reference</p>
+        <p><code>@Model.Reference</code></p>
+        <div class="amount">$@Model.Amount.ToString("N2")</div>
+
+        <form asp-action="Complete" method="post" class="d-grid gap-2">
+            <input type="hidden" name="paymentId" value="@Model.Id" />
+            <button class="btn btn-primary" type="submit" name="isSuccessful" value="true">Pay successfully</button>
+            <button class="btn btn-outline-danger" type="submit" name="isSuccessful" value="false">Simulate failure</button>
+        </form>
+    </div>
+</div>

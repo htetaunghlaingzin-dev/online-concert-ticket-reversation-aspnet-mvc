@@ -1,0 +1,6 @@
+@{ ViewData["Title"] = "Validate Ticket"; }
+<div class="page-head"><h1>Ticket Validation</h1></div>
+<div class="section-card">
+<form asp-action="Validate" method="post" class="row g-2"><div class="col-md-6"><input class="form-control" name="ticketCode" placeholder="Scan or enter ticket code" required autofocus /></div><div class="col-auto"><button class="btn btn-primary">Validate</button></div></form>
+@if (ViewBag.Result is string result) { <div class="alert @(result.StartsWith("Valid") ? "alert-success" : "alert-warning") mt-3 mb-0">@result</div> }
+</div>

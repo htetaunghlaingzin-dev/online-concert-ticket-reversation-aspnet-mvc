@@ -1,0 +1,87 @@
+@using System.Text.RegularExpressions
+@model IEnumerable<OnlineConcertTicketingReservationSystem.Models.Concert>
+@{
+    ViewData["Title"] = "Live concerts";
+
+    (bool IsIframe, string Src) ResolveTrailer(string url)
+    {
+        var youTube = Regex.Match(url, @"(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([\w-]{11})");
+        if (youTube.Success) return (true, $"https://www.youtube.com/embed/{youTube.Groups[1].Value}?autoplay=1&rel=0");
+
+        var vimeo = Regex.Match(url, @"vimeo\.com/(?:video/)?(\d+)");
+        if (vimeo.Success) return (true, $"https://player.vimeo.com/video/{vimeo.Groups[1].Value}?autoplay=1");
+
+        return (false, url);
+    }
+}
+<section class="hero">
+    <div class="eyebrow">The live music platform</div>
+    <h1>Feel it.<br />Live it.</h1>
+    <p>Find unforgettable shows, choose your perfect seat, and keep every ticket in one place.</p>
+    <a href="#concerts" class="btn btn-primary btn-lg">Explore concerts</a>
+</section>
+<section id="concerts">
+    <div class="d-flex align-items-end justify-content-between mb-3"><div><div class="eyebrow">On sale now</div><h2 class="mb-0">Upcoming concerts</h2></div><span class="concert-meta">@Model.Count() shows</span></div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    @foreach (var concert in Model)
+    {
+        var hasTrailer = !string.IsNullOrWhiteSpace(concert.TrailerUrl);
+        <div class="col">
+            <article class="card concert-card h-100">
+                <div class="concert-orb"></div>
+                <div class="card-body p-4">
+                    @if (hasTrailer)
+                    {
+                        <button type="button" class="card-trailer-trigger" data-bs-toggle="modal" data-bs-target="#trailer-modal-@concert.Id">
+                            <span class="badge text-bg-dark mb-3">@concert.VenueType · LIVE</span>
+                            <h2 class="h3 d-flex align-items-center gap-2">@concert.Title <span class="trailer-play-badge" title="Watch trailer">▶</span></h2>
+                            <p class="concert-meta mb-1">@concert.EventDate.ToLocalTime().ToString("dddd, MMMM d · h:mm tt")</p>
+                            <p class="trailer-hint mb-3">Tap to watch trailer</p>
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-dark mb-3">@concert.VenueType · LIVE</span>
+                        <h2 class="h3">@concert.Title</h2>
+                        <p class="concert-meta mb-4">@concert.EventDate.ToLocalTime().ToString("dddd, MMMM d · h:mm tt")</p>
+                    }
+                    @if (User.Identity?.IsAuthenticated == true) { <a asp-controller="Booking" asp-action="SelectSeats" asp-route-concertId="@concert.Id" class="btn btn-primary w-100">Choose seats</a> }
+                    else { <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("SelectSeats", "Booking", new { concertId = concert.Id })" class="btn btn-primary w-100">Sign in to book</a> }
+                </div>
+            </article>
+        </div>
+    }
+    </div>
+    @if (!Model.Any()) { <div class="card mt-3"><div class="card-body text-center py-5 text-muted">No concerts are scheduled yet. Your admin can add one from Manage.</div></div> }
+</section>
+
+@foreach (var concert in Model.Where(c => !string.IsNullOrWhiteSpace(c.TrailerUrl)))
+{
+    var (isIframe, src) = ResolveTrailer(concert.TrailerUrl!);
+    <div class="modal fade trailer-modal" id="trailer-modal-@concert.Id" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@concert.Title — Trailer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="ratio ratio-16x9">
+                    @if (isIframe)
+                    {
+                        <iframe data-src="@src" src="" title="@concert.Title trailer" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    }
+                    else
+                    {
+                        <video controls preload="none" data-src="@src" src=""></video>
+                    }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/trailer-modal.js"></script>
+}

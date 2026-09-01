@@ -1,0 +1,68 @@
+@model OnlineConcertTicketingReservationSystem.Models.ViewModels.AdminDashboardViewModel
+@{ ViewData["Title"] = "Admin Dashboard"; }
+<div class="page-head">
+    <h1>Dashboard</h1>
+    <div class="d-flex gap-2">
+        <a asp-action="Orders" class="btn btn-outline-light">View orders</a>
+        <a asp-action="VerificationQueue" class="btn btn-primary">Verification queue</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-tile"><div class="stat-label">Total revenue</div><div class="stat-value">$@Model.TotalRevenue.ToString("N2")</div></div>
+    <div class="stat-tile"><div class="stat-label">Tickets sold</div><div class="stat-value">@Model.TicketsSold</div></div>
+    <div class="stat-tile @(Model.PendingApprovalCount > 0 ? "stat-warn" : "")"><div class="stat-label">Pending approval</div><div class="stat-value">@Model.PendingApprovalCount</div></div>
+    <div class="stat-tile"><div class="stat-label">Upcoming concerts</div><div class="stat-value">@Model.UpcomingConcertsCount</div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="section-card">
+            <h4>Recent orders</h4>
+            @if (Model.RecentOrders.Count == 0)
+            {
+                <div class="empty-state">No orders yet.</div>
+            }
+            else
+            {
+                <table class="admin-table">
+                    <thead><tr><th>Order</th><th>Concert</th><th>Customer</th><th>Status</th><th>Total</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var o in Model.RecentOrders)
+                    {
+                        <tr>
+                            <td>#@o.Id</td>
+                            <td>@o.ConcertTitle</td>
+                            <td>@o.UserName</td>
+                            <td><span class="status-pill status-@o.Status">@o.Status</span></td>
+                            <td>$@o.TotalAmount.ToString("N2")</td>
+                            <td><a asp-action="OrderDetail" asp-route-id="@o.Id">View</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="section-card">
+            <h4>Low merchandise stock</h4>
+            @if (Model.LowStockAccessories.Count == 0)
+            {
+                <div class="empty-state">All stocked up.</div>
+            }
+            else
+            {
+                @foreach (var a in Model.LowStockAccessories)
+                {
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>@a.Name <small class="text-white-50">· @a.ConcertTitle</small></span>
+                        <strong class="@(a.StockQuantity == 0 ? "text-danger" : "text-warning")">@a.StockQuantity left</strong>
+                    </div>
+                }
+            }
+            <hr />
+            <a asp-controller="Management" asp-action="Index" class="btn btn-sm btn-outline-light w-100">Manage merchandise</a>
+        </div>
+    </div>
+</div>

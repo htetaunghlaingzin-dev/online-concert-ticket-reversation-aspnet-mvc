@@ -1,0 +1,361 @@
+@model OnlineConcertTicketingReservationSystem.Controllers.ManagementDashboardViewModel
+@using OnlineConcertTicketingReservationSystem.Models.Enums
+@{ ViewData["Title"] = "Management"; }
+
+<div class="page-head"><h1>Concert Management</h1></div>
+@if (Model.Message is not null) { <div class="alert alert-info">@Model.Message</div> }
+
+<ul class="nav mgmt-tabs" id="mgmt-tabs" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-catalog-btn" data-bs-toggle="tab" data-bs-target="#tab-catalog" type="button" role="tab">Venues &amp; Artists</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="tab-concerts-btn" data-bs-toggle="tab" data-bs-target="#tab-concerts" type="button" role="tab">Concerts &amp; Schedules</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="tab-ticketing-btn" data-bs-toggle="tab" data-bs-target="#tab-ticketing" type="button" role="tab">Ticket Types &amp; Seats</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="tab-merch-btn" data-bs-toggle="tab" data-bs-target="#tab-merch" type="button" role="tab">Merchandise</button></li>
+</ul>
+
+<div class="tab-content" id="mgmt-tabs-content">
+
+    <div class="tab-pane fade show active" id="tab-catalog" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="section-card">
+                    <h4>Venues</h4>
+                    <form asp-action="CreateVenue" method="post" class="row g-2 mb-3">
+                        <div class="col-12"><input name="name" class="form-control" placeholder="Venue name" required /></div>
+                        <div class="col-8"><input name="address" class="form-control" placeholder="Address" /></div>
+                        <div class="col-4"><input name="capacity" type="number" min="1" class="form-control" placeholder="Capacity" required /></div>
+                        <div class="col-12"><button class="btn btn-primary w-100">Add venue</button></div>
+                    </form>
+                    @if (!Model.Venues.Any())
+                    {
+                        <p class="empty-state mb-0 py-3">No venues yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var v in Model.Venues)
+                        {
+                            <div class="field-row">
+                                <span>@v.Name <small class="text-white-50">(@v.Capacity seats · @v.Address)</small></span>
+                                <form asp-action="Delete" method="post" data-confirm="Delete venue &quot;@v.Name&quot;?">
+                                    <input type="hidden" name="entity" value="venue" />
+                                    <input type="hidden" name="id" value="@v.Id" />
+                                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="section-card">
+                    <h4>Artists</h4>
+                    <form asp-action="CreateArtist" method="post" class="row g-2 mb-3">
+                        <div class="col-7"><input name="name" class="form-control" placeholder="Artist name" required /></div>
+                        <div class="col-5"><input name="genre" class="form-control" placeholder="Genre" /></div>
+                        <div class="col-12"><button class="btn btn-primary w-100">Add artist</button></div>
+                    </form>
+                    @if (!Model.Artists.Any())
+                    {
+                        <p class="empty-state mb-0 py-3">No artists yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var a in Model.Artists)
+                        {
+                            <div class="field-row">
+                                <span>@a.Name <small class="text-white-50">@a.Genre</small></span>
+                                <form asp-action="Delete" method="post" data-confirm="Delete artist &quot;@a.Name&quot;?">
+                                    <input type="hidden" name="entity" value="artist" />
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-concerts" role="tabpanel">
+        <div class="section-card mb-4">
+            <h4>Add a concert</h4>
+            <form asp-action="CreateConcert" method="post" class="row g-2">
+                <div class="col-md-4"><input name="title" class="form-control" placeholder="Concert title" required /></div>
+                <div class="col-md-3">
+                    <select name="venueId" class="form-select">
+                        <option value="">No venue</option>
+                        @foreach (var v in Model.Venues) { <option value="@v.Id">@v.Name</option> }
+                    </select>
+                </div>
+                <div class="col-md-3"><input name="eventDate" type="datetime-local" class="form-control" required /></div>
+                <div class="col-md-2">
+                    <select name="venueType" class="form-select">
+                        @foreach (var type in Enum.GetValues<VenueType>()) { <option value="@type">@type</option> }
+                    </select>
+                </div>
+                <div class="col-md-6"><input name="trailerUrl" type="url" class="form-control" placeholder="Trailer URL (YouTube link or direct .mp4, optional)" /></div>
+                <div class="col-12"><button class="btn btn-primary">Add concert</button></div>
+            </form>
+        </div>
+
+        <div class="section-card mb-4">
+            <h4>Concerts</h4>
+            @if (!Model.Concerts.Any())
+            {
+                <p class="empty-state mb-0 py-3">No concerts yet — add one above.</p>
+            }
+            else
+            {
+                @foreach (var c in Model.Concerts)
+                {
+                    <div class="concert-block">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <strong class="fs-5">@c.Title</strong>
+                                <div class="text-white-50 small">@c.EventDate.ToLocalTime().ToString("g") · @(c.Venue?.Name ?? "No venue") · @c.VenueType</div>
+                            </div>
+                            <form asp-action="Delete" method="post" data-confirm="Delete concert &quot;@c.Title&quot;? This also removes its seats, ticket types and merchandise.">
+                                <input type="hidden" name="entity" value="concert" />
+                                <input type="hidden" name="id" value="@c.Id" />
+                                <button class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </div>
+                        <div class="mt-3 d-flex align-items-center flex-wrap gap-2">
+                            <form asp-action="AddArtist" method="post" class="d-inline-flex gap-1">
+                                <input type="hidden" name="concertId" value="@c.Id" />
+                                <select name="artistId" class="form-select form-select-sm">
+                                    @foreach (var a in Model.Artists) { <option value="@a.Id">@a.Name</option> }
+                                </select>
+                                <input name="performanceOrder" type="number" value="1" min="1" class="form-control form-control-sm" style="width:65px" title="Performance order" />
+                                <button class="btn btn-sm btn-outline-secondary">Add artist</button>
+                            </form>
+                            @if (c.ConcertArtists.Any())
+                            {
+                                <span class="text-white-50 small">Lineup: @string.Join(", ", c.ConcertArtists.OrderBy(x => x.PerformanceOrder).Select(x => x.Artist.Name))</span>
+                            }
+                        </div>
+                        <form asp-action="UpdateConcertTrailer" method="post" class="d-flex gap-1 mt-2">
+                            <input type="hidden" name="concertId" value="@c.Id" />
+                            <input name="trailerUrl" type="url" value="@c.TrailerUrl" class="form-control form-control-sm" placeholder="Trailer URL (YouTube link or direct .mp4)" />
+                            <button class="btn btn-sm btn-outline-secondary">Save trailer</button>
+                        </form>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="section-card">
+            <h4>Schedules</h4>
+            <form asp-action="CreateSchedule" method="post" class="row g-2 mb-3">
+                <div class="col-12">
+                    <select name="concertId" class="form-select">
+                        @foreach (var c in Model.Concerts) { <option value="@c.Id">@c.Title</option> }
+                    </select>
+                </div>
+                <div class="col-6"><input type="datetime-local" name="startsAt" class="form-control" required /></div>
+                <div class="col-6"><input type="datetime-local" name="endsAt" class="form-control" required /></div>
+                <div class="col-12"><button class="btn btn-primary w-100">Add schedule</button></div>
+            </form>
+            @if (!Model.Schedules.Any())
+            {
+                <p class="empty-state mb-0 py-3">No schedules yet.</p>
+            }
+            else
+            {
+                @foreach (var s in Model.Schedules)
+                {
+                    <div class="field-row">
+                        <span>@s.Concert.Title <small class="text-white-50">@s.StartsAt.ToLocalTime().ToString("g") – @s.EndsAt.ToLocalTime().ToString("g")</small></span>
+                        <form asp-action="Delete" method="post" data-confirm="Delete this schedule?">
+                            <input type="hidden" name="entity" value="schedule" />
+                            <input type="hidden" name="id" value="@s.Id" />
+                            <button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-ticketing" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="section-card">
+                    <h4>Ticket types <small class="text-white-50 fw-normal">(VIP / Normal tiers)</small></h4>
+                    <form asp-action="CreateTicketType" method="post" class="row g-2 mb-3">
+                        <div class="col-12">
+                            <select name="concertId" class="form-select">
+                                @foreach (var c in Model.Concerts) { <option value="@c.Id">@c.Title</option> }
+                            </select>
+                        </div>
+                        <div class="col-4"><input name="name" class="form-control" placeholder="e.g. VIP" required /></div>
+                        <div class="col-4"><input name="price" type="number" step="0.01" min="0" class="form-control" placeholder="Price" required /></div>
+                        <div class="col-4"><input name="capacity" type="number" min="1" class="form-control" placeholder="Target qty" required /></div>
+                        <div class="col-12"><button class="btn btn-primary w-100">Add ticket type</button></div>
+                    </form>
+                    @if (!Model.TicketTypes.Any())
+                    {
+                        <p class="empty-state mb-0 py-3">No ticket types yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var t in Model.TicketTypes)
+                        {
+                            <div class="field-row">
+                                <span>@t.Concert.Title — <strong>@t.Name</strong> <small class="text-white-50">$@t.Price.ToString("N2") · target @t.Capacity</small></span>
+                                <form asp-action="Delete" method="post" data-confirm="Delete ticket type &quot;@t.Name&quot;?">
+                                    <input type="hidden" name="entity" value="ticketType" />
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </div>
+                        }
+                    }
+                    <p class="text-white-50 small mt-3 mb-0">Creating a ticket type doesn't assign it to seats by itself — use <strong>Assign seat tier</strong> to apply it to a section.</p>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="section-card mb-4">
+                    <h4>Generate seats</h4>
+                    <p class="text-white-50 small">Bulk-create a block of seats for a concert (e.g. Section A, rows 1–5, 10 seats per row).</p>
+                    <form asp-action="GenerateSeats" method="post" class="row g-2">
+                        <div class="col-12">
+                            <select name="concertId" class="form-select">
+                                @foreach (var c in Model.Concerts) { <option value="@c.Id">@c.Title</option> }
+                            </select>
+                        </div>
+                        <div class="col-4"><input name="section" class="form-control" placeholder="Section" required /></div>
+                        <div class="col-4"><input name="rowStart" type="number" min="1" class="form-control" placeholder="Row start" required /></div>
+                        <div class="col-4"><input name="rowEnd" type="number" min="1" class="form-control" placeholder="Row end" required /></div>
+                        <div class="col-4"><input name="seatsPerRow" type="number" min="1" class="form-control" placeholder="Seats/row" required /></div>
+                        <div class="col-4"><input name="price" type="number" step="0.01" min="0" class="form-control" placeholder="Price" required /></div>
+                        <div class="col-4">
+                            <select name="ticketTypeId" class="form-select">
+                                <option value="">No tier</option>
+                                @foreach (var t in Model.TicketTypes) { <option value="@t.Id">@t.Concert.Title — @t.Name</option> }
+                            </select>
+                        </div>
+                        <div class="col-12"><button class="btn btn-primary w-100">Generate seats</button></div>
+                    </form>
+                </div>
+
+                <div class="section-card mb-4">
+                    <h4>Assign seat tier</h4>
+                    <p class="text-white-50 small">Retroactively apply a ticket type (and its price) to every seat in a section.</p>
+                    <form asp-action="AssignSeatTier" method="post" class="row g-2" data-confirm="Retier every seat in this section? Their price will be overwritten.">
+                        <div class="col-12">
+                            <select name="concertId" class="form-select">
+                                @foreach (var c in Model.Concerts) { <option value="@c.Id">@c.Title</option> }
+                            </select>
+                        </div>
+                        <div class="col-6"><input name="section" class="form-control" placeholder="Section (e.g. A)" required /></div>
+                        <div class="col-6">
+                            <select name="ticketTypeId" class="form-select">
+                                <option value="">Unassign tier</option>
+                                @foreach (var t in Model.TicketTypes) { <option value="@t.Id">@t.Concert.Title — @t.Name ($@t.Price)</option> }
+                            </select>
+                        </div>
+                        <div class="col-12"><button class="btn btn-primary w-100">Apply tier to section</button></div>
+                    </form>
+                </div>
+
+                <div class="section-card">
+                    <h4>Seat sections</h4>
+                    @if (!Model.SeatSections.Any())
+                    {
+                        <p class="empty-state mb-0 py-3">No seats generated yet.</p>
+                    }
+                    else
+                    {
+                        <table class="admin-table">
+                            <thead><tr><th>Concert</th><th>Section</th><th>Seats</th><th>Tier</th><th>Price range</th></tr></thead>
+                            <tbody>
+                            @foreach (var s in Model.SeatSections)
+                            {
+                                <tr>
+                                    <td>@s.ConcertTitle</td>
+                                    <td>@s.Section</td>
+                                    <td>@s.SeatCount</td>
+                                    <td>@s.TicketTypeName</td>
+                                    <td>$@s.MinPrice.ToString("N0")@(s.MinPrice != s.MaxPrice ? $" – ${s.MaxPrice:N0}" : "")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-merch" role="tabpanel">
+        <div class="section-card">
+            <h4>Merchandise</h4>
+            <p class="text-white-50 small">Extra items sold alongside tickets at checkout (t-shirts, posters, etc.).</p>
+            <form asp-action="CreateAccessory" method="post" class="row g-2 mb-3">
+                <div class="col-md-3">
+                    <select name="concertId" class="form-select">
+                        @foreach (var c in Model.Concerts) { <option value="@c.Id">@c.Title</option> }
+                    </select>
+                </div>
+                <div class="col-md-3"><input name="name" class="form-control" placeholder="Item name" required /></div>
+                <div class="col-md-2"><input name="price" type="number" step="0.01" min="0" class="form-control" placeholder="Price" required /></div>
+                <div class="col-md-2"><input name="stockQuantity" type="number" min="0" class="form-control" placeholder="Stock" required /></div>
+                <div class="col-md-2"><input name="imageUrl" type="url" class="form-control" placeholder="Photo URL (optional)" /></div>
+                <div class="col-12"><button class="btn btn-primary">Add item</button></div>
+            </form>
+            @if (!Model.Accessories.Any())
+            {
+                <p class="empty-state mb-0 py-3">No merchandise yet.</p>
+            }
+            else
+            {
+                <table class="admin-table">
+                    <thead><tr><th>Photo</th><th>Concert</th><th>Item</th><th>Price</th><th>Stock &amp; photo URL</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var a in Model.Accessories)
+                    {
+                        <tr>
+                            <td>
+                                @if (!string.IsNullOrEmpty(a.ImageUrl))
+                                {
+                                    <img src="@a.ImageUrl" alt="@a.Name" style="width:42px;height:42px;object-fit:cover;border-radius:.5rem" />
+                                }
+                                else
+                                {
+                                    <span class="text-white-50">—</span>
+                                }
+                            </td>
+                            <td>@a.Concert.Title</td>
+                            <td>@a.Name</td>
+                            <td>$@a.Price.ToString("N2")</td>
+                            <td>
+                                <form asp-action="RestockAccessory" method="post" class="d-flex gap-1">
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <input name="stockQuantity" type="number" min="0" value="@a.StockQuantity" class="form-control form-control-sm" style="width:70px" title="Stock quantity" />
+                                    <input name="imageUrl" type="url" value="@a.ImageUrl" class="form-control form-control-sm" placeholder="Photo URL" />
+                                    <button class="btn btn-sm btn-outline-secondary">Update</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form asp-action="Delete" method="post" data-confirm="Delete &quot;@a.Name&quot;?">
+                                    <input type="hidden" name="entity" value="accessory" />
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="~/js/mgmt-tabs.js"></script>
+}

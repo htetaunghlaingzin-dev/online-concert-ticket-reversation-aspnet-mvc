@@ -1,0 +1,91 @@
+:root{--ink:#10121d;--surface:#181b2a;--violet:#8b5cf6;--pink:#ec4899;--lime:#bef264;--muted:#a8adc2}html{font-size:16px;min-height:100%}body{min-height:100vh;margin:0;color:#f6f7fb;background:radial-gradient(circle at 12% 0,#352657 0,transparent 32rem),radial-gradient(circle at 92% 18%,#3a1f47 0,transparent 30rem),var(--ink);font-family:Inter,ui-sans-serif,system-ui}.site-nav{background:rgba(16,18,29,.8);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08)}.navbar-brand{color:#fff!important;font-weight:800;letter-spacing:-.04em}.brand-mark{color:var(--lime);margin-right:.45rem}.nav-link{color:#c8cbe0!important;font-size:.92rem}.nav-link:hover{color:#fff!important}.page-shell{min-height:calc(100vh - 145px);padding:2rem 0 4rem}.site-footer{color:#8c91a9;border-color:rgba(255,255,255,.08)!important}.btn{border-radius:.7rem;font-weight:700;padding:.6rem 1rem}.btn-primary{background:linear-gradient(135deg,var(--violet),var(--pink));border:0}.card{color:#f7f7fb;background:rgba(31,35,53,.86);border:1px solid rgba(255,255,255,.1);border-radius:1.1rem}.form-control,.form-select{color:#fff;background:#111421;border-color:#3b405b;border-radius:.65rem}.form-control:focus,.form-select:focus{color:#fff;background:#151928;border-color:var(--violet);box-shadow:0 0 0 .22rem rgba(139,92,246,.22)}.form-select option{background:#151928}.hero{padding:4.5rem 0 3rem;max-width:750px}.eyebrow{color:var(--lime);font-size:.75rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hero h1{font-size:clamp(2.7rem,7vw,5.5rem);line-height:.94;font-weight:850;letter-spacing:-.07em}.hero p{color:var(--muted);font-size:1.18rem;max-width:590px}.concert-card{overflow:hidden;transition:transform .2s,border-color .2s}.concert-card:hover{transform:translateY(-5px);border-color:rgba(190,242,100,.55)}.concert-orb{height:8px;background:linear-gradient(90deg,var(--violet),var(--pink),var(--lime))}.concert-meta{color:var(--muted);font-size:.9rem}.booking-head{background:linear-gradient(120deg,rgba(139,92,246,.3),rgba(236,72,153,.15));border:1px solid rgba(255,255,255,.1);border-radius:1.2rem;padding:1.7rem;margin-bottom:1.5rem}.booking-head h1{font-weight:800;margin:0}.seat-panel,.summary-panel{background:rgba(24,27,42,.88);border:1px solid rgba(255,255,255,.1);border-radius:1.2rem;padding:1.5rem}.summary-panel{position:sticky;top:1.4rem}.seat-stage{margin:0 auto 1.5rem;max-width:560px;text-align:center;padding:.55rem;color:#10121d;background:linear-gradient(90deg,var(--lime),#fff);border-radius:2rem;font-size:.72rem;font-weight:900;letter-spacing:.18em}.seat-grid{display:flex;flex-direction:column;gap:.6rem}.seat-row{display:flex;align-items:center;gap:.45rem}.seat-row-label{width:4rem;color:var(--muted);font-size:.76rem;font-weight:700}.seat-cell{width:2.55rem;height:2.55rem;display:flex;align-items:center;justify-content:center;border-radius:.6rem;color:#fff;font-size:.78rem;font-weight:800;cursor:pointer;transition:transform .15s,box-shadow .15s;border:2px solid transparent}.seat-cell:hover.seat-available{transform:translateY(-2px);box-shadow:0 7px 15px rgba(190,242,100,.2)}.seat-available{color:#12200a;background:var(--lime)}.seat-pending{background:#fbbf24;color:#332400;cursor:not-allowed}.seat-booked{background:#4a5068;cursor:not-allowed}.seat-selected{border-color:#fff;box-shadow:0 0 0 3px var(--violet)}.legend-dot{width:.7rem;height:.7rem;border-radius:50%;display:inline-block;margin-right:.35rem}.legend{color:var(--muted);font-size:.8rem;display:flex;flex-wrap:wrap;gap:1rem}.list-group-item{color:#eef0ff;background:transparent;border-color:rgba(255,255,255,.09)}@media(max-width:767px){.page-shell{padding-top:1rem}.hero{padding:2.5rem 0}.summary-panel{position:static;margin-top:1rem}.seat-cell{width:2.15rem;height:2.15rem}.seat-row-label{width:3rem;font-size:.68rem}}
+
+/* --- Admin / Management / order UI --- */
+.navbar .dropdown-menu{background:#181b2a;border:1px solid rgba(255,255,255,.12);border-radius:.75rem;padding:.4rem;margin-top:.5rem;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.navbar .dropdown-item{color:#c8cbe0;border-radius:.5rem;font-size:.9rem;padding:.5rem .75rem}
+.navbar .dropdown-item:hover,.navbar .dropdown-item:focus{background:rgba(139,92,246,.22);color:#fff}
+.navbar .dropdown-divider{border-color:rgba(255,255,255,.1)}
+.navbar .dropdown-toggle::after{margin-left:.4rem}
+
+.page-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.page-head h1,.page-head h2{margin:0;font-weight:800}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.75rem}
+.stat-tile{background:rgba(24,27,42,.88);border:1px solid rgba(255,255,255,.1);border-radius:1rem;padding:1.25rem}
+.stat-tile .stat-label{color:var(--muted);font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.stat-tile .stat-value{font-size:1.9rem;font-weight:850;margin-top:.35rem;letter-spacing:-.03em}
+.stat-tile.stat-warn .stat-value{color:#fbbf24}
+
+.section-card{background:rgba(24,27,42,.88);border:1px solid rgba(255,255,255,.1);border-radius:1.1rem;padding:1.5rem;margin-bottom:1.5rem}
+.section-card h4,.section-card h5{font-weight:800;margin-bottom:1rem}
+
+.admin-table{width:100%;border-collapse:separate;border-spacing:0}
+.admin-table th{color:var(--muted);font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-align:left;padding:.6rem .75rem;border-bottom:1px solid rgba(255,255,255,.1)}
+.admin-table td{padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle;color:#eef0ff}
+.admin-table tbody tr:hover{background:rgba(139,92,246,.08)}
+.admin-table a{color:#c9b8ff;text-decoration:none;font-weight:700}
+.admin-table a:hover{text-decoration:underline}
+
+.status-pill{display:inline-block;padding:.28rem .65rem;border-radius:2rem;font-size:.72rem;font-weight:800;letter-spacing:.03em;white-space:nowrap}
+.status-Confirmed{background:rgba(190,242,100,.18);color:#bef264}
+.status-PendingPayment,.status-PendingApproval{background:rgba(251,191,36,.18);color:#fbbf24}
+.status-Rejected,.status-Cancelled,.status-Expired{background:rgba(248,113,113,.18);color:#f87171}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+
+.tier-legend{display:flex;flex-wrap:wrap;gap:.9rem;color:var(--muted);font-size:.8rem}
+.tier-swatch{width:.7rem;height:.7rem;border-radius:.2rem;display:inline-block;margin-right:.35rem;vertical-align:-1px}
+.seat-cell[data-tier-rank="0"]{box-shadow:inset 0 3px 0 0 #fbbf24}
+.seat-cell[data-tier-rank="1"]{box-shadow:inset 0 3px 0 0 #60a5fa}
+.seat-cell[data-tier-rank="2"]{box-shadow:inset 0 3px 0 0 #f472b6}
+.seat-cell.seat-selected[data-tier-rank]{box-shadow:inset 0 3px 0 0 currentColor,0 0 0 3px var(--violet)}
+
+.alert{border-radius:.85rem;border:1px solid rgba(255,255,255,.1)}
+.badge{border-radius:.5rem}
+
+@media(max-width:767px){.stat-grid{grid-template-columns:repeat(2,1fr)}.admin-table{font-size:.85rem}}
+
+/* --- Management tabs --- */
+.mgmt-tabs{border-bottom:1px solid rgba(255,255,255,.1);gap:.25rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.mgmt-tabs .nav-link{color:var(--muted);font-weight:700;font-size:.88rem;border:0;border-bottom:2px solid transparent;border-radius:.5rem .5rem 0 0;padding:.65rem 1.1rem}
+.mgmt-tabs .nav-link:hover{color:#fff;background:rgba(255,255,255,.04)}
+.mgmt-tabs .nav-link.active{color:#fff;background:rgba(139,92,246,.14);border-bottom-color:var(--violet)}
+.field-row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.field-row:last-child{border-bottom:0}
+.concert-block{border:1px solid rgba(255,255,255,.1);border-radius:.9rem;padding:1rem;margin-bottom:.9rem}
+
+/* --- Auth pages --- */
+.auth-shell{max-width:440px;margin:2.5rem auto 0}
+.auth-shell .section-card h2{font-weight:800;margin-bottom:.25rem}
+.auth-shell .subtitle{color:var(--muted);font-size:.9rem;margin-bottom:1.5rem}
+
+/* --- Mock payment / confirmation --- */
+.payment-shell{max-width:480px;margin:2rem auto 0;text-align:center}
+.payment-shell .amount{font-size:2.6rem;font-weight:850;letter-spacing:-.03em;margin:.5rem 0 1.5rem}
+.confirm-banner{background:linear-gradient(120deg,rgba(190,242,100,.22),rgba(139,92,246,.15));border:1px solid rgba(190,242,100,.35);border-radius:1.2rem;padding:1.75rem;margin-bottom:1.5rem}
+.confirm-banner h2{font-weight:850;margin-bottom:.35rem}
+.ticket-qr-card{display:flex;align-items:center;gap:1rem;justify-content:space-between}
+.ticket-qr-card img{background:#fff;border-radius:.6rem;padding:.35rem}
+
+/* --- Seat map horizontal scroll --- */
+.seat-scroll{overflow-x:auto;padding-bottom:.5rem}
+.seat-scroll .seat-row{width:max-content}
+.seat-scroll .seat-row-label{position:sticky;left:0;z-index:2;background:var(--surface);padding-right:.5rem}
+
+/* --- Extras / merch photo cards --- */
+.extras-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.75rem}
+.extra-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:.85rem;padding:.6rem;text-align:center}
+.extra-photo{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:.6rem;margin-bottom:.5rem;display:block}
+.extra-photo-placeholder{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--pink));color:#fff;font-size:1.6rem;font-weight:800}
+.extra-name{font-size:.82rem;font-weight:700;color:#f6f7fb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.extra-price{font-size:.75rem;color:var(--muted)}
+
+/* --- Concert trailer --- */
+.card-trailer-trigger{all:unset;display:block;width:100%;cursor:pointer;box-sizing:border-box}
+.trailer-play-badge{display:inline-flex;align-items:center;justify-content:center;width:1.7rem;height:1.7rem;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--pink));font-size:.7rem;flex-shrink:0}
+.trailer-hint{color:var(--lime);font-size:.78rem;font-weight:700;letter-spacing:.02em;margin-bottom:1.25rem}
+.modal-content{background:var(--surface);color:#f6f7fb;border:1px solid rgba(255,255,255,.12);border-radius:1rem}
+.modal-header{border-bottom-color:rgba(255,255,255,.1)}
+.modal-title{font-weight:800}
+.btn-close{filter:invert(1) grayscale(1) brightness(1.6)}
+.trailer-modal .modal-body{border-radius:0 0 1rem 1rem;overflow:hidden;background:#000}
