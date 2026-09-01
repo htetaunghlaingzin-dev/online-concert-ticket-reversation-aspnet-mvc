@@ -1,0 +1,22 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+
+# macOS
+.DS_Store
+
+# Runtime-uploaded files (payment slips) — not source
+OnlineConcertTicketingReservationSystem/wwwroot/uploads/
+
+# Local secrets/overrides
+appsettings.Development.json
+appsettings.*.local.json
+
+# Claude Code local tool permissions (machine-specific, not project config)
+.claude/settings.local.json
