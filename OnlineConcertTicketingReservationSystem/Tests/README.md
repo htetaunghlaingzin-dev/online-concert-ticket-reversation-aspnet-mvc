@@ -18,6 +18,8 @@ Existing numeric prices and totals are unchanged. For existing ticket types with
 
 Pending ticket orders do not hold inventory or display a countdown. Final payment or manual approval rechecks availability and commits the payment, deduction, and QR ticket issuance together. SQL Server transaction-owned application locks coordinate payment, approval, cancellations, and stock editing across app instances; conditional stock updates also prevent negative inventory. Historical order and ticket prices are saved independently from current ticket type prices.
 
-The existing gateway is a development mock and does not charge real money. Slip verification remains available from checkout. No separate payment-method catalog is needed.
+The existing gateway is a development mock and does not charge real money. Payment-slip submission has been removed from checkout; existing submitted slips remain available for admin verification. No separate payment-method catalog is needed.
 
 The migration refuses rollback after new ticket orders exist to prevent data loss. Apply subsequent changes with forward migrations.
+
+Admin Orders displays all statuses in one list. Status updates confirm pending orders using the same inventory transaction, reject or cancel pending orders without adding stock, and cancel confirmed orders with a single stock restoration. Closed orders cannot be reopened, and stale status edits are rejected.

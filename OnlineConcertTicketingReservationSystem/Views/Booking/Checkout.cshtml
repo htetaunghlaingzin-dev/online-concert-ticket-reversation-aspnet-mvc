@@ -40,21 +40,6 @@
             }
             else { <p class="alert alert-warning">This older reservation has expired.</p> }
             <a asp-action="SelectTickets" asp-route-concertId="@Model.ConcertId" class="btn btn-outline-light w-100 mt-2">Change tickets</a>
-            @if (Model.CanPay)
-            {
-                <details class="mt-4">
-                    <summary>Submit a payment slip for verification</summary>
-                    <p class="small text-white-50 mt-2">Tickets are issued after an admin verifies your payment and available stock.</p>
-                    <form asp-action="UploadSlip" method="post" enctype="multipart/form-data" class="mt-3">
-                        <input type="hidden" name="OrderId" value="@Model.OrderId" />
-                        <label for="payment-reference" class="form-label">Transaction reference</label>
-                        <input id="payment-reference" name="TransactionRefId" maxlength="100" required class="form-control mb-2" />
-                        <label for="payment-slip" class="form-label">Payment slip (JPG, PNG, WEBP; up to 5 MB)</label>
-                        <input id="payment-slip" name="SlipImage" type="file" accept=".jpg,.jpeg,.png,.webp" required class="form-control mb-3" />
-                        <button class="btn btn-outline-light w-100">Submit payment slip</button>
-                    </form>
-                </details>
-            }
         </div>
     </div>
 </div>

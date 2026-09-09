@@ -66,10 +66,9 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Orders(OrderStatus? status)
+    public async Task<IActionResult> Orders()
     {
         var query = _db.Orders.Include(o => o.User).Include(o => o.Concert).AsQueryable();
-        if (status is not null) query = query.Where(o => o.Status == status);
 
         var orders = await query
             .OrderByDescending(o => o.CreatedAt)
@@ -85,7 +84,6 @@ public class AdminController : Controller
             })
             .ToListAsync();
 
-        ViewBag.StatusFilter = status;
         return View(orders);
     }
 
@@ -175,8 +173,24 @@ public class AdminController : Controller
             return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
         }
 
+        await CancelConfirmedOrderAsync(order, request.Reason.Trim());
+
+        await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        foreach (var ticket in order.Tickets)
+        {
+            if (ticket.Seat != null) await _notifier.NotifySeatStatusAsync(order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
+        }
+
+        TempData["Message"] = "Order cancelled and stock restored.";
+        return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
+    }
+
+    private async Task CancelConfirmedOrderAsync(OnlineConcertTicketingReservationSystem.Models.Order order, string reason)
+    {
         order.Status = OrderStatus.Cancelled;
-        order.CancellationReason = request.Reason.Trim();
+        order.CancellationReason = reason;
         order.CancelledAt = DateTime.UtcNow;
 
         foreach (var ticket in order.Tickets)
@@ -205,16 +219,54 @@ public class AdminController : Controller
             payment.Status = PaymentStatus.Refunded;
         }
 
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateStatus(int orderId, OrderStatus status, OrderStatus expectedStatus)
+    {
+        IActionResult Back(string message) { TempData["Message"] = message; return RedirectToAction(nameof(Orders)); }
+        if (!ModelState.IsValid || !Enum.IsDefined(status) || !Enum.IsDefined(expectedStatus)) return Back("Choose a valid order status.");
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        await TicketInventory.LockAsync(_db);
+        var order = await _db.Orders.Include(o => o.Tickets).ThenInclude(t => t.Seat)
+            .Include(o => o.OrderAccessories).ThenInclude(a => a.Accessory)
+            .Include(o => o.PaymentTransactions).FirstOrDefaultAsync(o => o.Id == orderId);
+        if (order is null) return NotFound();
+        if (order.Status != expectedStatus) return Back("This order changed while you were editing. Review its current status and try again.");
+        if (order.Status == status) return Back("The order already has this status.");
+        if (!OrderStatusChanges.Allowed(order.Status).Contains(status)) return Back("This status change is not available. Closed orders cannot be reopened.");
+        if (status == OrderStatus.Confirmed)
+        {
+            var error = await TicketInventory.ConfirmAsync(_db, order);
+            if (error != null) return Back(error);
+            var reference = $"ADMIN-{order.Id}-{Guid.NewGuid():N}";
+            _db.PaymentTransactions.Add(new OnlineConcertTicketingReservationSystem.Models.PaymentTransaction
+            {
+                OrderId = order.Id, Amount = order.TotalAmount, Reference = reference,
+                Status = PaymentStatus.Succeeded, CompletedAt = DateTime.UtcNow
+            });
+            order.TransactionRefId ??= reference;
+        }
+        else if (order.Status == OrderStatus.Confirmed)
+        {
+            await CancelConfirmedOrderAsync(order, "Cancelled by admin.");
+        }
+        else
+        {
+            await TicketInventory.ReleaseLegacySeatsAsync(_db, order.Id);
+            order.Status = status;
+            order.LockExpiresAt = null;
+            if (status == OrderStatus.Rejected) order.RejectionReason = "Rejected by admin.";
+            if (status == OrderStatus.Cancelled) { order.CancellationReason = "Cancelled by admin."; order.CancelledAt = DateTime.UtcNow; }
+        }
+        foreach (var payment in order.PaymentTransactions.Where(p => p.Status == PaymentStatus.Pending))
+        {
+            payment.Status = PaymentStatus.Failed;
+            payment.CompletedAt = DateTime.UtcNow;
+        }
         await _db.SaveChangesAsync();
         await transaction.CommitAsync();
-
-        foreach (var ticket in order.Tickets)
-        {
-            if (ticket.Seat != null) await _notifier.NotifySeatStatusAsync(order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
-        }
-
-        TempData["Message"] = "Order cancelled and stock restored.";
-        return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
+        return Back($"Order #{order.Id} updated to {OrderStatusChanges.Label(status)}.");
     }
 
     [HttpPost]

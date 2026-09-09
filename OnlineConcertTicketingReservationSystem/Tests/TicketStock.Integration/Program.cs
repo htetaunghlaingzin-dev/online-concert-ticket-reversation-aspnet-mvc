@@ -275,6 +275,28 @@ try
         Check(((string)validator.ViewBag.Result).StartsWith("Already used"), "used QR ticket cannot be validated again");
     }
 
+    var editedOrder = await Reserve(2);
+    using (var scope = provider.CreateScope()) await Admin(scope).UpdateStatus(editedOrder, OrderStatus.Confirmed, OrderStatus.PendingPayment);
+    await using (var db = new ApplicationDbContext(options))
+        Check(await Stock(2) == 0 && await db.Tickets.CountAsync(t => t.OrderId == editedOrder) == 1 && await db.PaymentTransactions.CountAsync(p => p.OrderId == editedOrder && p.Status == PaymentStatus.Succeeded) == 1, "admin status confirmation deducts stock and issues paid tickets");
+    using (var scope = provider.CreateScope()) await Admin(scope).UpdateStatus(editedOrder, OrderStatus.Confirmed, OrderStatus.PendingPayment);
+    Check(await Stock(2) == 0, "stale status submission cannot confirm twice");
+    using (var scope = provider.CreateScope()) await Admin(scope).UpdateStatus(editedOrder, OrderStatus.Cancelled, OrderStatus.Confirmed);
+    await using (var db = new ApplicationDbContext(options))
+        Check(await Stock(2) == 1 && await db.PaymentTransactions.AnyAsync(p => p.OrderId == editedOrder && p.Status == PaymentStatus.Refunded), "admin status cancellation restores stock and refunds payment");
+    using (var scope = provider.CreateScope()) await Admin(scope).UpdateStatus(editedOrder, OrderStatus.Confirmed, OrderStatus.Cancelled);
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.Orders.AnyAsync(o => o.Id == editedOrder && o.Status == OrderStatus.Cancelled) && await Stock(2) == 1, "closed orders cannot be reopened through status editing");
+    var rejectedOrder = await Reserve(2);
+    using (var scope = provider.CreateScope()) await Admin(scope).UpdateStatus(rejectedOrder, OrderStatus.Rejected, OrderStatus.PendingPayment);
+    Check(await Stock(2) == 1, "rejecting a pending order does not add stock");
+    using (var scope = provider.CreateScope())
+    {
+        var allOrders = (ViewResult)await Admin(scope).Orders();
+        var rows = (List<OrderSummaryViewModel>)allOrders.Model!;
+        Check(rows.Any(o => o.Status == OrderStatus.Confirmed) && rows.Any(o => o.Status == OrderStatus.Cancelled) && rows.Any(o => o.Status == OrderStatus.Rejected), "Orders includes all statuses without filter tabs");
+    }
+
     Console.WriteLine($"SUCCESS: {passed} integration checks passed.");
     if (args.Contains("--keep")) Console.WriteLine("Retained isolated UI test database: " + database);
 }
