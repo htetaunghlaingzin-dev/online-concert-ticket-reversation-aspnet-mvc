@@ -32,185 +32,73 @@ public class BookingController : Controller
     private Guid CurrentUserId => Guid.Parse(_userManager.GetUserId(User)!);
 
     [HttpGet]
-    public async Task<IActionResult> SelectSeats(int concertId)
+    public IActionResult SelectSeats(int concertId) => RedirectToAction(nameof(SelectTickets), new { concertId });
+
+    [HttpGet]
+    public async Task<IActionResult> SelectTickets(int concertId)
     {
-        var concert = await _db.Concerts.FindAsync(concertId);
-        if (concert is null)
-        {
-            return NotFound();
-        }
-
-        var seats = await _db.Seats
-            .Include(s => s.TicketType)
-            .Where(s => s.ConcertId == concertId)
-            .OrderBy(s => s.Section).ThenBy(s => s.Row).ThenBy(s => s.SeatNumber)
-            .Select(s => new SeatViewModel
-            {
-                Id = s.Id,
-                Section = s.Section,
-                Row = s.Row,
-                SeatNumber = s.SeatNumber,
-                Price = s.Price,
-                Status = s.Status,
-                TicketTypeName = s.TicketType == null ? null : s.TicketType.Name
-            })
-            .ToListAsync();
-
-        var ticketTypeLegend = await _db.TicketTypes
-            .Where(t => t.ConcertId == concertId)
-            .OrderByDescending(t => t.Price)
-            .Select(t => new TicketTypeLegendItem { Name = t.Name, Price = t.Price })
-            .ToListAsync();
-
-        var accessories = await _db.Accessories
-            .Where(a => a.ConcertId == concertId)
-            .Select(a => new AccessoryViewModel
-            {
-                Id = a.Id,
-                Name = a.Name,
-                Price = a.Price,
-                StockQuantity = a.StockQuantity,
-                ImageUrl = a.ImageUrl
-            })
-            .ToListAsync();
-
-        var model = new SeatSelectionViewModel
-        {
-            ConcertId = concert.Id,
-            ConcertTitle = concert.Title,
-            EventDate = concert.EventDate,
-            Seats = seats,
-            Accessories = accessories,
-            TicketTypeLegend = ticketTypeLegend,
-            ErrorMessage = TempData["Error"] as string,
-            ConflictingSeatIds = TempData["ConflictingSeatIds"] is string csv && csv.Length > 0
-                ? csv.Split(',').Select(int.Parse).ToList()
-                : new List<int>()
-        };
-
-        return View(model);
+        var concert = await _db.Concerts.Include(c => c.TicketTypes).Include(c => c.Accessories).FirstOrDefaultAsync(c => c.Id == concertId);
+        if (concert is null) return NotFound();
+        return View(new TicketSelectionViewModel { Concert = concert, ErrorMessage = TempData["Error"] as string });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReserveSeats(ReserveSeatsRequest request)
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult ReserveSeats(ReserveSeatsRequest request)
     {
-        if (request.SeatIds.Count == 0)
-        {
-            TempData["Error"] = "Please select at least one seat.";
-            return RedirectToAction(nameof(SelectSeats), new { concertId = request.ConcertId });
-        }
+        TempData["Error"] = "Booking now uses ticket types. Please choose your tickets.";
+        return RedirectToAction(nameof(SelectTickets), new { concertId = request.ConcertId });
+    }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReserveTickets(ReserveTicketsRequest request)
+    {
+        IActionResult Invalid(string error)
+        {
+            TempData["Error"] = error;
+            return RedirectToAction(nameof(SelectTickets), new { concertId = request.ConcertId });
+        }
+        if (!ModelState.IsValid || request.Quantity < 1 || request.Quantity > 100) return Invalid("Choose a ticket type and a quantity between 1 and 100.");
         await using var transaction = await _db.Database.BeginTransactionAsync();
-        try
+        await TicketInventory.LockAsync(_db);
+        var type = await _db.TicketTypes.Include(t => t.Concert).FirstOrDefaultAsync(t => t.Id == request.TicketTypeId && t.ConcertId == request.ConcertId);
+        if (type is null || !new[] { "VIP", "GA", "VVIP" }.Contains(type.Name)) return Invalid("Choose a valid ticket type for this concert.");
+        if (type.Concert.EventDate <= DateTime.UtcNow) return Invalid("Booking has closed for this concert.");
+        if (type.AvailableStock < request.Quantity) return Invalid(type.AvailableStock == 0 ? "Sold Out. Please choose another ticket type." : $"Only {type.AvailableStock} tickets are available.");
+        var order = new Order { UserId = CurrentUserId, ConcertId = request.ConcertId, TicketTypeId = type.Id,
+            TicketTypeName = type.Name, Quantity = request.Quantity, UnitPrice = type.Price, TotalAmount = type.Price * request.Quantity };
+        if (request.Accessories.Any(a => a.Quantity < 0 || a.Quantity > 100) || request.Accessories.GroupBy(a => a.AccessoryId).Any(g => g.Count() > 1))
+            return Invalid("Invalid merchandise quantities.");
+        foreach (var selection in request.Accessories.Where(a => a.Quantity > 0))
         {
-            var seats = await _db.Seats
-                .Where(s => request.SeatIds.Contains(s.Id) && s.ConcertId == request.ConcertId)
-                .ToListAsync();
-
-            var unavailable = seats.Where(s => s.Status != SeatStatus.Available).Select(s => s.Id).ToList();
-            if (unavailable.Count > 0 || seats.Count != request.SeatIds.Count)
-            {
-                await transaction.RollbackAsync();
-                TempData["Error"] = "One or more selected seats are no longer available.";
-                TempData["ConflictingSeatIds"] = string.Join(',', unavailable);
-                return RedirectToAction(nameof(SelectSeats), new { concertId = request.ConcertId });
-            }
-
-            var accessoryIds = request.Accessories.Where(a => a.Quantity > 0).Select(a => a.AccessoryId).ToList();
-            var accessories = await _db.Accessories
-                .Where(a => accessoryIds.Contains(a.Id) && a.ConcertId == request.ConcertId)
-                .ToListAsync();
-
-            var seatTotal = seats.Sum(s => s.Price);
-            var order = new Order
-            {
-                UserId = CurrentUserId,
-                ConcertId = request.ConcertId,
-                Status = OrderStatus.PendingPayment,
-                LockExpiresAt = DateTime.UtcNow.AddMinutes(10),
-                CreatedAt = DateTime.UtcNow
-            };
-
-            decimal accessoryTotal = 0m;
-            foreach (var selection in request.Accessories.Where(a => a.Quantity > 0))
-            {
-                var accessory = accessories.FirstOrDefault(a => a.Id == selection.AccessoryId);
-                if (accessory is null)
-                {
-                    continue;
-                }
-
-                var quantity = Math.Min(selection.Quantity, accessory.StockQuantity);
-                if (quantity <= 0)
-                {
-                    continue;
-                }
-
-                accessoryTotal += accessory.Price * quantity;
-                order.OrderAccessories.Add(new OrderAccessory
-                {
-                    AccessoryId = accessory.Id,
-                    Quantity = quantity,
-                    UnitPrice = accessory.Price
-                });
-            }
-
-            order.TotalAmount = seatTotal + accessoryTotal;
-            _db.Orders.Add(order);
-            await _db.SaveChangesAsync();
-
-            foreach (var seat in seats)
-            {
-                seat.Status = SeatStatus.PendingPayment;
-                seat.CurrentOrderId = order.Id;
-            }
-
-            await _db.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            foreach (var seat in seats)
-            {
-                await _notifier.NotifySeatStatusAsync(request.ConcertId, seat.Id, SeatStatus.PendingPayment);
-            }
-
-            return RedirectToAction(nameof(Checkout), new { orderId = order.Id });
+            var item = await _db.Accessories.FirstOrDefaultAsync(a => a.Id == selection.AccessoryId && a.ConcertId == request.ConcertId);
+            if (item is null || item.StockQuantity < selection.Quantity) return Invalid("The selected merchandise quantity is unavailable.");
+            order.OrderAccessories.Add(new OrderAccessory { AccessoryId = item.Id, UnitPrice = item.Price, Quantity = selection.Quantity });
+            order.TotalAmount += item.Price * selection.Quantity;
         }
-        catch (DbUpdateConcurrencyException)
-        {
-            await transaction.RollbackAsync();
-            TempData["Error"] = "One or more selected seats were just taken by another user. Please reselect.";
-            return RedirectToAction(nameof(SelectSeats), new { concertId = request.ConcertId });
-        }
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return RedirectToAction(nameof(Checkout), new { orderId = order.Id });
     }
 
     [HttpGet]
     public async Task<IActionResult> Checkout(int orderId)
     {
-        var order = await _db.Orders
-            .Include(o => o.Concert)
-            .Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
-            .FirstOrDefaultAsync(o => o.Id == orderId);
-
-        if (order is null || order.UserId != CurrentUserId)
+        var order = await _db.Orders.Include(o => o.Concert).Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == CurrentUserId);
+        if (order is null) return NotFound();
+        if (order.Status != OrderStatus.PendingPayment) return RedirectToAction(nameof(Confirmation), new { orderId });
+        var summaries = new List<string>();
+        if (order.TicketTypeId.HasValue) summaries.Add($"{order.TicketTypeName} × {order.Quantity} — MMK {order.UnitPrice:N2} each");
+        else
         {
-            return NotFound();
+            var seats = await _db.Seats.Include(s => s.TicketType).Where(s => s.CurrentOrderId == order.Id).ToListAsync();
+            summaries.AddRange(seats.Select(s => $"{s.TicketType?.Name ?? "Legacy ticket"} — MMK {s.Price:N2}"));
         }
-
-        var seats = await _db.Seats.Where(s => s.CurrentOrderId == order.Id).ToListAsync();
-
-        var model = new CheckoutViewModel
-        {
-            OrderId = order.Id,
-            ConcertTitle = order.Concert.Title,
-            TotalAmount = order.TotalAmount,
-            LockExpiresAt = order.LockExpiresAt,
-            SeatSummaries = seats.Select(s => $"Section {s.Section}, Row {s.Row}, Seat {s.SeatNumber} (${s.Price})").ToList(),
-            AccessorySummaries = order.OrderAccessories.Select(oa => $"{oa.Accessory.Name} x{oa.Quantity} (${oa.UnitPrice} each)").ToList(),
-            ErrorMessage = TempData["Error"] as string
-        };
-
-        return View(model);
+        return View(new CheckoutViewModel { OrderId = order.Id, ConcertId = order.ConcertId, ConcertTitle = order.Concert.Title,
+            TotalAmount = order.TotalAmount, TicketSummaries = summaries, CanPay = order.LockExpiresAt == null || order.LockExpiresAt > DateTime.UtcNow,
+            AccessorySummaries = order.OrderAccessories.Select(oa => $"{oa.Accessory.Name} × {oa.Quantity} (MMK {oa.UnitPrice:N2} each)").ToList(),
+            ErrorMessage = TempData["Error"] as string });
     }
 
     [HttpPost]
@@ -218,18 +106,26 @@ public class BookingController : Controller
     [RequestSizeLimit(MaxSlipSizeBytes)]
     public async Task<IActionResult> UploadSlip(UploadSlipRequest request)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        await TicketInventory.LockAsync(_db);
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId);
         if (order is null || order.UserId != CurrentUserId)
         {
             return NotFound();
         }
 
-        if (order.Status != OrderStatus.PendingPayment || order.LockExpiresAt is null || order.LockExpiresAt <= DateTime.UtcNow)
+        if (order.Status != OrderStatus.PendingPayment || order.LockExpiresAt <= DateTime.UtcNow)
         {
             TempData["Error"] = "Your reservation has expired.";
             return RedirectToAction(nameof(Checkout), new { orderId = order.Id });
         }
 
+        if (string.IsNullOrWhiteSpace(request.TransactionRefId) || request.TransactionRefId.Length > 100)
+        {
+            TempData["Error"] = "A transaction reference is required.";
+            return RedirectToAction(nameof(Checkout), new { orderId = order.Id });
+        }
+        request.TransactionRefId = request.TransactionRefId.Trim();
         var validationError = await ValidateSlipFileAsync(request.SlipImage);
         if (validationError is not null)
         {
@@ -262,6 +158,7 @@ public class BookingController : Controller
         try
         {
             await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
         catch (DbUpdateException)
         {
@@ -277,7 +174,7 @@ public class BookingController : Controller
     {
         var order = await _db.Orders
             .Include(o => o.Concert)
-            .Include(o => o.Tickets).ThenInclude(t => t.Seat)
+            .Include(o => o.Tickets).ThenInclude(t => t.Seat).ThenInclude(s => s!.TicketType)
             .Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
             .FirstOrDefaultAsync(o => o.Id == orderId);
         if (order is null || order.UserId != CurrentUserId)

@@ -12,6 +12,12 @@ public class Order
     public Concert Concert { get; set; } = null!;
 
     public decimal TotalAmount { get; set; }
+    public int? TicketTypeId { get; set; }
+    public TicketType? TicketType { get; set; }
+    public string? TicketTypeName { get; set; }
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public bool StockDeducted { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.PendingPayment;
     public DateTime? LockExpiresAt { get; set; }
     public string? PaymentSlipUrl { get; set; }

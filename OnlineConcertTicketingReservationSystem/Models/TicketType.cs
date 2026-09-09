@@ -8,4 +8,6 @@ public class TicketType
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public int Capacity { get; set; }
+    public int AvailableStock { get; set; }
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }

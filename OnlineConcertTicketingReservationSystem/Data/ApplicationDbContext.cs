@@ -63,6 +63,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
 
         builder.Entity<Order>(entity =>
         {
+            entity.HasOne(o => o.TicketType).WithMany().HasForeignKey(o => o.TicketTypeId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(o => o.UnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(o => o.TicketTypeName).HasMaxLength(100);
             entity.HasOne(o => o.User)
                 .WithMany()
                 .HasForeignKey(o => o.UserId)
@@ -107,7 +110,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         builder.Entity<Ticket>(entity =>
         {
             entity.HasIndex(t => t.TicketCode).IsUnique();
-            entity.HasIndex(t => new { t.OrderId, t.SeatId }).IsUnique();
+            entity.HasIndex(t => new { t.OrderId, t.SeatId }).IsUnique().HasFilter("[SeatId] IS NOT NULL");
+            entity.Ignore(t => t.DisplayType);
+            entity.Ignore(t => t.DisplayPrice);
+            entity.Property(t => t.UnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(t => t.TicketTypeName).HasMaxLength(100);
+            entity.HasOne(t => t.TicketType).WithMany().HasForeignKey(t => t.TicketTypeId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(t => t.RevocationReason).HasMaxLength(500);
             entity.HasOne(t => t.Order).WithMany(o => o.Tickets)
                 .HasForeignKey(t => t.OrderId).OnDelete(DeleteBehavior.Cascade);
@@ -124,6 +132,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
             .HasForeignKey(s => s.ConcertId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<TicketType>(entity =>
         {
+            entity.Property(t => t.RowVersion).IsRowVersion();
+            entity.ToTable(t => t.HasCheckConstraint("CK_TicketTypes_StockAndPrice", "[AvailableStock] >= 0 AND [Price] >= 0"));
             entity.Property(t => t.Price).HasColumnType("decimal(18,2)");
             entity.HasOne(t => t.Concert).WithMany(c => c.TicketTypes)
                 .HasForeignKey(t => t.ConcertId).OnDelete(DeleteBehavior.Cascade);

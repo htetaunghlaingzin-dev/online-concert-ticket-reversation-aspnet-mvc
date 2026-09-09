@@ -28,6 +28,8 @@ public class MockPaymentController : Controller
     [HttpGet]
     public async Task<IActionResult> Pay(int orderId)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        await TicketInventory.LockAsync(_db);
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == CurrentUserId);
         if (order is null) return NotFound();
         if (order.Status != OrderStatus.PendingPayment) return RedirectToAction("Confirmation", "Booking", new { orderId });
@@ -46,6 +48,7 @@ public class MockPaymentController : Controller
             await _db.SaveChangesAsync();
         }
 
+        await transaction.CommitAsync();
         return View(payment);
     }
 
@@ -54,6 +57,7 @@ public class MockPaymentController : Controller
     public async Task<IActionResult> Complete(int paymentId, bool isSuccessful)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync();
+        await TicketInventory.LockAsync(_db);
         var payment = await _db.PaymentTransactions
             .Include(p => p.Order)
             .FirstOrDefaultAsync(p => p.Id == paymentId && p.Order.UserId == CurrentUserId);
@@ -77,32 +81,22 @@ public class MockPaymentController : Controller
             payment.CompletedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
-            TempData["Error"] = "Mock payment was declined. Your reservation remains active until it expires.";
+            TempData["Error"] = "Mock payment was declined. You can try again; availability will be checked when payment succeeds.";
             return RedirectToAction(nameof(Pay), new { orderId = order.Id });
         }
 
-        var seats = await _db.Seats.Where(s => s.CurrentOrderId == order.Id).ToListAsync();
-        var orderAccessories = await _db.OrderAccessories
-            .Include(oa => oa.Accessory)
-            .Where(oa => oa.OrderId == order.Id)
-            .ToListAsync();
+        var error = await TicketInventory.ConfirmAsync(_db, order);
+        if (error is not null)
+        {
+            await transaction.RollbackAsync();
+            TempData["Error"] = error;
+            return RedirectToAction("Checkout", "Booking", new { orderId = order.Id });
+        }
         payment.Status = PaymentStatus.Succeeded;
         payment.CompletedAt = DateTime.UtcNow;
-        order.Status = OrderStatus.Confirmed;
-        order.LockExpiresAt = null;
         order.TransactionRefId = payment.Reference;
-        foreach (var seat in seats)
-        {
-            seat.Status = SeatStatus.Booked;
-            _db.Tickets.Add(new Ticket { OrderId = order.Id, SeatId = seat.Id, TicketCode = $"TKT-{Guid.NewGuid():N}".ToUpperInvariant() });
-        }
-        foreach (var item in orderAccessories)
-            item.Accessory.StockQuantity = Math.Max(0, item.Accessory.StockQuantity - item.Quantity);
         await _db.SaveChangesAsync();
         await transaction.CommitAsync();
-
-        foreach (var seat in seats)
-            await _notifier.NotifySeatStatusAsync(order.ConcertId, seat.Id, SeatStatus.Booked);
 
         return RedirectToAction("Confirmation", "Booking", new { orderId = order.Id });
     }

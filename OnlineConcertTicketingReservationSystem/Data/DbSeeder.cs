@@ -82,7 +82,7 @@ public static class DbSeeder
 
             foreach (var concert in concerts)
             {
-                await SeedSeatsAndTiersAsync(db, concert);
+                await SeedTicketTypesAsync(db, concert);
             }
 
             db.Accessories.AddRange(
@@ -96,38 +96,12 @@ public static class DbSeeder
         }
     }
 
-    private static async Task SeedSeatsAndTiersAsync(ApplicationDbContext db, Concert concert)
+    private static async Task SeedTicketTypesAsync(ApplicationDbContext db, Concert concert)
     {
-        const int seatsPerRow = 12;
-        var vipType = new TicketType { ConcertId = concert.Id, Name = "VIP", Price = 150m, Capacity = 3 * seatsPerRow };
-        var generalType = new TicketType { ConcertId = concert.Id, Name = "General", Price = 90m, Capacity = 3 * seatsPerRow };
-        db.TicketTypes.AddRange(vipType, generalType);
-        await db.SaveChangesAsync();
-
-        var sectionTiers = new Dictionary<string, TicketType> { ["A"] = vipType, ["B"] = generalType };
-
-        var seats = new List<Seat>();
-        foreach (var section in new[] { "A", "B" })
-        {
-            var tier = sectionTiers[section];
-            for (var row = 1; row <= 3; row++)
-            {
-                for (var num = 1; num <= seatsPerRow; num++)
-                {
-                    seats.Add(new Seat
-                    {
-                        ConcertId = concert.Id,
-                        Section = section,
-                        Row = row.ToString(),
-                        SeatNumber = num,
-                        Price = tier.Price,
-                        TicketTypeId = tier.Id,
-                        Status = SeatStatus.Available
-                    });
-                }
-            }
-        }
-        db.Seats.AddRange(seats);
+        db.TicketTypes.AddRange(
+            new TicketType { ConcertId = concert.Id, Name = "VIP", Price = 150m, Capacity = 36, AvailableStock = 36 },
+            new TicketType { ConcertId = concert.Id, Name = "GA", Price = 90m, Capacity = 36, AvailableStock = 36 },
+            new TicketType { ConcertId = concert.Id, Name = "VVIP", Price = 150m, Capacity = 0, AvailableStock = 0 });
         await db.SaveChangesAsync();
     }
 }

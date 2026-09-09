@@ -1,0 +1,70 @@
+@model OnlineConcertTicketingReservationSystem.Models.ViewModels.TicketSelectionViewModel
+@{ ViewData["Title"] = "Choose tickets"; var types = Model.Concert.TicketTypes.Where(t => new[] { "VIP", "GA", "VVIP" }.Contains(t.Name)).OrderBy(t => t.Price).ToList(); }
+<div class="booking-head">
+    <div class="eyebrow">Choose your tickets</div>
+    <h1>@Model.Concert.Title</h1>
+    <p class="mb-0 mt-2">@Model.Concert.EventDate.ToLocalTime().ToString("f")</p>
+</div>
+@if (Model.ErrorMessage is not null) { <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div> }
+@if (Model.Concert.EventDate <= DateTime.UtcNow)
+{
+    <div class="section-card">Booking has closed for this concert.</div>
+}
+else if (!types.Any())
+{
+    <div class="section-card">Tickets are not on sale yet.</div>
+}
+else
+{
+    <form asp-action="ReserveTickets" method="post" id="ticket-selection">
+        <input type="hidden" name="ConcertId" value="@Model.Concert.Id" />
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="section-card">
+                    <h2 class="h4">Ticket type</h2>
+                    <div class="row g-3">
+                    @foreach (var type in types)
+                    {
+                        <div class="col-md-4">
+                            <label class="ticket-option h-100" for="type-@type.Id">
+                                <input id="type-@type.Id" type="radio" name="TicketTypeId" value="@type.Id" data-price="@type.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-stock="@type.AvailableStock" required disabled="@(type.AvailableStock == 0)" />
+                                <strong class="d-block fs-4 mt-2">@type.Name</strong>
+                                <span class="d-block">MMK @type.Price.ToString("N2")</span>
+                                <span class="d-block mt-2 @(type.AvailableStock == 0 ? "text-warning" : "text-white-50")">@(type.AvailableStock == 0 ? "Sold Out" : $"{type.AvailableStock} available")</span>
+                            </label>
+                        </div>
+                    }
+                    </div>
+                </div>
+                @if (Model.Concert.Accessories.Any())
+                {
+                    <div class="section-card">
+                        <h2 class="h4">Merchandise <small class="text-white-50">(optional)</small></h2>
+                        @{ var items = Model.Concert.Accessories.OrderBy(a => a.Name).ToList(); }
+                        @for (var i = 0; i < items.Count; i++)
+                        {
+                            var item = items[i];
+                            <div class="field-row gap-3">
+                                <label for="merch-@item.Id">@item.Name · MMK @item.Price.ToString("N2") <small class="d-block text-white-50">@(item.StockQuantity == 0 ? "Sold Out" : $"{item.StockQuantity} available")</small></label>
+                                <input type="hidden" name="Accessories[@i].AccessoryId" value="@item.Id" />
+                                <input id="merch-@item.Id" class="form-control merch-quantity" style="max-width:100px" name="Accessories[@i].Quantity" type="number" min="0" max="@Math.Min(100, item.StockQuantity)" value="0" data-price="@item.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="col-lg-4">
+                <div class="section-card">
+                    <label for="quantity" class="form-label">Ticket quantity</label>
+                    <input id="quantity" name="Quantity" type="number" min="1" max="100" value="1" required class="form-control mb-3" />
+                    <p id="quantity-hint" class="text-white-50">Choose a ticket type to see availability. Maximum 100 tickets per order.</p>
+                    <p class="fs-4 fw-bold" aria-live="polite">Total: <span id="ticket-total">MMK 0.00</span></p>
+                    <p class="small text-white-50">Availability is checked again when payment is confirmed.</p>
+                    <button class="btn btn-primary w-100" disabled="@(!types.Any(t => t.AvailableStock > 0))">Continue to checkout</button>
+                </div>
+            </div>
+        </div>
+    </form>
+}
+<a asp-controller="Home" asp-action="Index" class="btn btn-outline-light">Back to concerts</a>
+@section Scripts { <script src="~/js/ticket-selection.js" asp-append-version="true"></script> }

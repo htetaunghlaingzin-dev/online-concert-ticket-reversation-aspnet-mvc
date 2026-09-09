@@ -1,0 +1,65 @@
+@using OnlineConcertTicketingReservationSystem.Models.Enums
+@model OnlineConcertTicketingReservationSystem.Models.ViewModels.OrderDetailViewModel
+<dl class="order-facts">
+    <div><dt>Concert</dt><dd class="fs-5">@Model.ConcertTitle</dd></div>
+    <div><dt>Customer</dt><dd>@Model.UserName<br /><small class="text-white-50">@Model.UserEmail</small></dd></div>
+    <div><dt>Payment status</dt><dd><span class="status-pill status-@Model.Status">@Model.PaymentStatus</span></dd></div>
+    <div><dt>Order status</dt><dd>@Model.Status</dd></div>
+    <div><dt>Order</dt><dd>#@Model.Id</dd></div>
+    <div><dt>Placed</dt><dd>@Model.CreatedAt.ToLocalTime().ToString("g")</dd></div>
+</dl>
+<div class="table-responsive mb-3">
+    <table class="admin-table order-ticket-table">
+        <thead><tr><th>Ticket type</th><th>Quantity</th><th>Price (MMK)</th><th>Amount (MMK)</th></tr></thead>
+        <tbody>
+        @foreach (var line in Model.TicketSummary)
+        {
+            <tr><td data-label="Ticket type">@line.Name</td><td data-label="Quantity">@line.Quantity</td><td data-label="Price (MMK)">@line.UnitPrice.ToString("N2")</td><td data-label="Amount (MMK)">@((line.UnitPrice * line.Quantity).ToString("N2"))</td></tr>
+        }
+        @if (!Model.TicketSummary.Any()) { <tr><td colspan="4">Ticket details are unavailable for this older order. The recorded total is preserved below.</td></tr> }
+        </tbody>
+    </table>
+</div>
+@if (Model.AccessorySummaries.Any())
+{
+    <h3 class="h6">Merchandise</h3>
+    <ul>@foreach (var item in Model.AccessorySummaries) { <li>@item</li> }</ul>
+}
+<p class="fs-4 fw-bold">Total amount: MMK @Model.TotalAmount.ToString("N2")</p>
+@if (!string.IsNullOrEmpty(Model.TransactionRefId)) { <p class="text-break"><strong>Payment reference:</strong> @Model.TransactionRefId</p> }
+@if (!string.IsNullOrEmpty(Model.RejectionReason)) { <p><strong>Rejection reason:</strong> @Model.RejectionReason</p> }
+@if (!string.IsNullOrEmpty(Model.CancellationReason)) { <p><strong>Cancellation reason:</strong> @Model.CancellationReason</p> }
+@if (Model.Tickets.Any())
+{
+    <details class="mb-3">
+        <summary>Issued tickets (@Model.Tickets.Count)</summary>
+        @foreach (var ticket in Model.Tickets)
+        {
+            <div class="border-bottom py-3">
+                <p class="mb-1">@ticket.SeatLabel · <code>@ticket.TicketCode</code></p>
+                @if (ticket.Revoked) { <p class="text-warning mb-0">Revoked @ticket.RevocationReason</p> }
+                else if (Model.Status == OrderStatus.Confirmed)
+                {
+                    <form asp-controller="Admin" asp-action="RevokeTicket" method="post" class="d-flex flex-wrap gap-2">
+                        <input type="hidden" name="OrderId" value="@Model.Id" /><input type="hidden" name="TicketId" value="@ticket.Id" />
+                        <input name="Reason" class="form-control" maxlength="500" required aria-label="Revocation reason" placeholder="Reason for revoking this ticket" />
+                        <button class="btn btn-sm btn-outline-danger">Revoke ticket</button>
+                    </form>
+                }
+            </div>
+        }
+    </details>
+}
+@if (Model.Status == OrderStatus.Confirmed)
+{
+    <details>
+        <summary>Cancel order</summary>
+        <p class="text-white-50 small mt-2">Cancel all remaining tickets, restore stock, and mark the mock payment refunded.</p>
+        <form asp-controller="Admin" asp-action="CancelOrder" method="post">
+            <input type="hidden" name="OrderId" value="@Model.Id" />
+            <label for="cancel-reason-@Model.Id" class="form-label">Cancellation reason</label>
+            <textarea id="cancel-reason-@Model.Id" name="Reason" class="form-control mb-2" rows="2" maxlength="500" required></textarea>
+            <button class="btn btn-outline-danger">Cancel order</button>
+        </form>
+    </details>
+}

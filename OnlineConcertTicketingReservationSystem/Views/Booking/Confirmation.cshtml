@@ -4,11 +4,19 @@
 }
 
 <div class="confirm-banner">
-    <div class="eyebrow">Booking confirmed</div>
-    <h2>You're going to @Model.Concert.Title 🎉</h2>
-    <p class="mb-0 text-white-50">Order #@Model.Id · Status: <strong>@Model.Status</strong> · Total paid: $@Model.TotalAmount.ToString("N2")</p>
+    <div class="eyebrow">@(Model.Status == OnlineConcertTicketingReservationSystem.Models.Enums.OrderStatus.Confirmed ? "Booking confirmed" : "Order status")</div>
+    <h2>@Model.Concert.Title</h2>
+    <p class="mb-0 text-white-50">Order #@Model.Id · Status: <strong>@Model.Status</strong> · Order total: MMK @Model.TotalAmount.ToString("N2")</p>
 </div>
 
+@if (Model.TicketTypeId.HasValue)
+{
+    <div class="section-card">@Model.TicketTypeName × @Model.Quantity · MMK @Model.UnitPrice.ToString("N2") each</div>
+}
+@if (Model.Status == OnlineConcertTicketingReservationSystem.Models.Enums.OrderStatus.PendingApproval)
+{
+    <p class="alert alert-info">Your payment slip is awaiting review. Tickets will be issued after approval and stock validation.</p>
+}
 @if (Model.Tickets.Count > 0)
 {
     <h4>Your tickets</h4>
@@ -18,11 +26,15 @@
         <div class="col">
             <div class="section-card mb-0 ticket-qr-card">
                 <div>
-                    <p class="mb-1 text-white-50">Seat</p>
-                    <h5 class="mb-1">@ticket.Seat.Section-@ticket.Seat.Row-@ticket.Seat.SeatNumber</h5>
+                    <p class="mb-1 text-white-50">Ticket type</p>
+                    <h5 class="mb-1">@ticket.DisplayType</h5>
                     <code>@ticket.TicketCode</code>
                 </div>
+                @if (ticket.RevokedAt == null && Model.Status == OnlineConcertTicketingReservationSystem.Models.Enums.OrderStatus.Confirmed)
+                {
                 <img width="96" height="96" src="@Url.Action("Qr", "Ticket", new { id = ticket.Id })" alt="Ticket QR code" />
+                }
+                else { <span class="status-pill status-Cancelled">Revoked</span> }
             </div>
         </div>
     }
@@ -36,7 +48,7 @@
         <ul class="list-group">
         @foreach (var oa in Model.OrderAccessories)
         {
-            <li class="list-group-item">@oa.Accessory.Name x@oa.Quantity <span class="text-white-50">($@oa.UnitPrice.ToString("N2") each)</span></li>
+            <li class="list-group-item">@oa.Accessory.Name x@oa.Quantity <span class="text-white-50">(MMK @oa.UnitPrice.ToString("N2") each)</span></li>
         }
         </ul>
     </div>

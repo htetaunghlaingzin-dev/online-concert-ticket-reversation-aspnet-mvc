@@ -17,7 +17,7 @@
 <section class="hero">
     <div class="eyebrow">The live music platform</div>
     <h1>Feel it.<br />Live it.</h1>
-    <p>Find unforgettable shows, choose your perfect seat, and keep every ticket in one place.</p>
+    <p>Find unforgettable shows, choose your ticket type, and keep every ticket in one place.</p>
     <a href="#concerts" class="btn btn-primary btn-lg">Explore concerts</a>
 </section>
 <section id="concerts">
@@ -45,8 +45,8 @@
                         <h2 class="h3">@concert.Title</h2>
                         <p class="concert-meta mb-4">@concert.EventDate.ToLocalTime().ToString("dddd, MMMM d · h:mm tt")</p>
                     }
-                    @if (User.Identity?.IsAuthenticated == true) { <a asp-controller="Booking" asp-action="SelectSeats" asp-route-concertId="@concert.Id" class="btn btn-primary w-100">Choose seats</a> }
-                    else { <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("SelectSeats", "Booking", new { concertId = concert.Id })" class="btn btn-primary w-100">Sign in to book</a> }
+                    @if (User.Identity?.IsAuthenticated == true) { <a asp-controller="Booking" asp-action="SelectTickets" asp-route-concertId="@concert.Id" class="btn btn-primary w-100">Choose tickets</a> }
+                    else { <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("SelectTickets", "Booking", new { concertId = concert.Id })" class="btn btn-primary w-100">Sign in to book</a> }
                 </div>
             </article>
         </div>

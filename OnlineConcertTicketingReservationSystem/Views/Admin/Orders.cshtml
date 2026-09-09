@@ -20,7 +20,7 @@
 }
 else
 {
-    <table class="admin-table">
+    <div class="table-responsive"><table class="admin-table">
         <thead><tr><th>Order</th><th>Concert</th><th>Customer</th><th>Status</th><th>Total</th><th>Placed</th><th></th></tr></thead>
         <tbody>
         @foreach (var o in Model)
@@ -30,12 +30,15 @@ else
                 <td>@o.ConcertTitle</td>
                 <td>@o.UserName<br /><small class="text-white-50">@o.UserEmail</small></td>
                 <td><span class="status-pill status-@o.Status">@o.Status</span></td>
-                <td>$@o.TotalAmount.ToString("N2")</td>
+                <td>MMK @o.TotalAmount.ToString("N2")</td>
                 <td>@o.CreatedAt.ToLocalTime().ToString("g")</td>
-                <td><a asp-action="OrderDetail" asp-route-id="@o.Id">View</a></td>
+                <td><a asp-action="OrderDetail" asp-route-id="@o.Id" class="order-view" data-order-id="@o.Id">View</a></td>
             </tr>
         }
         </tbody>
-    </table>
+    </table></div>
 }
 </div>
+
+<partial name="_OrderModal" />
+@section Scripts { <script src="~/js/order-details.js" asp-append-version="true"></script> }

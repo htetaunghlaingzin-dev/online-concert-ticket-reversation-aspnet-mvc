@@ -6,7 +6,9 @@ public class CheckoutViewModel
     public string ConcertTitle { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public DateTime? LockExpiresAt { get; set; }
-    public List<string> SeatSummaries { get; set; } = new();
+    public int ConcertId { get; set; }
+    public bool CanPay { get; set; }
+    public List<string> TicketSummaries { get; set; } = new();
     public List<string> AccessorySummaries { get; set; } = new();
     public string? ErrorMessage { get; set; }
 }

@@ -9,7 +9,7 @@
 </div>
 
 <div class="stat-grid">
-    <div class="stat-tile"><div class="stat-label">Total revenue</div><div class="stat-value">$@Model.TotalRevenue.ToString("N2")</div></div>
+    <div class="stat-tile"><div class="stat-label">Total revenue</div><div class="stat-value">MMK @Model.TotalRevenue.ToString("N2")</div></div>
     <div class="stat-tile"><div class="stat-label">Tickets sold</div><div class="stat-value">@Model.TicketsSold</div></div>
     <div class="stat-tile @(Model.PendingApprovalCount > 0 ? "stat-warn" : "")"><div class="stat-label">Pending approval</div><div class="stat-value">@Model.PendingApprovalCount</div></div>
     <div class="stat-tile"><div class="stat-label">Upcoming concerts</div><div class="stat-value">@Model.UpcomingConcertsCount</div></div>
@@ -25,7 +25,7 @@
             }
             else
             {
-                <table class="admin-table">
+                <div class="table-responsive"><table class="admin-table">
                     <thead><tr><th>Order</th><th>Concert</th><th>Customer</th><th>Status</th><th>Total</th><th></th></tr></thead>
                     <tbody>
                     @foreach (var o in Model.RecentOrders)
@@ -35,12 +35,12 @@
                             <td>@o.ConcertTitle</td>
                             <td>@o.UserName</td>
                             <td><span class="status-pill status-@o.Status">@o.Status</span></td>
-                            <td>$@o.TotalAmount.ToString("N2")</td>
-                            <td><a asp-action="OrderDetail" asp-route-id="@o.Id">View</a></td>
+                            <td>MMK @o.TotalAmount.ToString("N2")</td>
+                            <td><a asp-action="OrderDetail" asp-route-id="@o.Id" class="order-view" data-order-id="@o.Id">View</a></td>
                         </tr>
                     }
                     </tbody>
-                </table>
+                </table></div>
             }
         </div>
     </div>
@@ -66,3 +66,6 @@
         </div>
     </div>
 </div>
+
+<partial name="_OrderModal" />
+@section Scripts { <script src="~/js/order-details.js" asp-append-version="true"></script> }

@@ -1,13 +1,14 @@
 @model OnlineConcertTicketingReservationSystem.Models.PaymentTransaction
 @{ ViewData["Title"] = "Mock Payment Gateway"; }
 
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 <div class="payment-shell">
     <div class="section-card">
         <span class="badge text-bg-warning mb-3">Development gateway · no real charge</span>
         <h2>Mock Payment</h2>
         <p class="text-white-50 mb-1">Reference</p>
         <p><code>@Model.Reference</code></p>
-        <div class="amount">$@Model.Amount.ToString("N2")</div>
+        <div class="amount">MMK @Model.Amount.ToString("N2")</div>
 
         <form asp-action="Complete" method="post" class="d-grid gap-2">
             <input type="hidden" name="paymentId" value="@Model.Id" />

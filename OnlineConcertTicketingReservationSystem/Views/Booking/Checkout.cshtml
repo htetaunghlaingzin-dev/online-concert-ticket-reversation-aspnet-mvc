@@ -16,20 +16,17 @@
         <div class="section-card">
             <h4>Order summary</h4>
             <ul class="list-group mb-3">
-                @foreach (var seat in Model.SeatSummaries)
+                @foreach (var ticket in Model.TicketSummaries)
                 {
-                    <li class="list-group-item">@seat</li>
+                    <li class="list-group-item">@ticket</li>
                 }
                 @foreach (var accessory in Model.AccessorySummaries)
                 {
                     <li class="list-group-item">@accessory</li>
                 }
-                <li class="list-group-item fw-bold">Total: $@Model.TotalAmount</li>
+                <li class="list-group-item fw-bold">Total: MMK @Model.TotalAmount</li>
             </ul>
 
-            <div class="alert alert-warning mb-0">
-                Time remaining to complete payment: <span id="countdown" class="fw-bold"></span>
-            </div>
         </div>
     </div>
 
@@ -37,32 +34,27 @@
         <div class="section-card">
             <h4>Payment</h4>
             <p class="text-white-50">Continue to the local mock payment gateway. A successful payment confirms the booking immediately.</p>
+            @if (Model.CanPay)
+            {
             <a asp-controller="MockPayment" asp-action="Pay" asp-route-orderId="@Model.OrderId" class="btn btn-primary w-100">Continue to payment</a>
+            }
+            else { <p class="alert alert-warning">This older reservation has expired.</p> }
+            <a asp-action="SelectTickets" asp-route-concertId="@Model.ConcertId" class="btn btn-outline-light w-100 mt-2">Change tickets</a>
+            @if (Model.CanPay)
+            {
+                <details class="mt-4">
+                    <summary>Submit a payment slip for verification</summary>
+                    <p class="small text-white-50 mt-2">Tickets are issued after an admin verifies your payment and available stock.</p>
+                    <form asp-action="UploadSlip" method="post" enctype="multipart/form-data" class="mt-3">
+                        <input type="hidden" name="OrderId" value="@Model.OrderId" />
+                        <label for="payment-reference" class="form-label">Transaction reference</label>
+                        <input id="payment-reference" name="TransactionRefId" maxlength="100" required class="form-control mb-2" />
+                        <label for="payment-slip" class="form-label">Payment slip (JPG, PNG, WEBP; up to 5 MB)</label>
+                        <input id="payment-slip" name="SlipImage" type="file" accept=".jpg,.jpeg,.png,.webp" required class="form-control mb-3" />
+                        <button class="btn btn-outline-light w-100">Submit payment slip</button>
+                    </form>
+                </details>
+            }
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        const lockExpiresAt = @(Model.LockExpiresAt.HasValue ? $"new Date('{Model.LockExpiresAt.Value:O}')" : "null");
-        const countdownEl = document.getElementById("countdown");
-
-        function updateCountdown() {
-            if (!lockExpiresAt) {
-                countdownEl.textContent = "N/A";
-                return;
-            }
-            const remainingMs = lockExpiresAt - new Date();
-            if (remainingMs <= 0) {
-                countdownEl.textContent = "Expired";
-                return;
-            }
-            const minutes = Math.floor(remainingMs / 60000);
-            const seconds = Math.floor((remainingMs % 60000) / 1000);
-            countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-        }
-
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
-    </script>
-}

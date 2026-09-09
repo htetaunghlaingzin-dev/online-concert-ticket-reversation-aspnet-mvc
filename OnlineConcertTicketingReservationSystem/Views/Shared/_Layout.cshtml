@@ -49,9 +49,26 @@
     </nav>
 </header>
 <div class="container page-shell">
-    <main role="main" class="pb-3">
-        @RenderBody()
-    </main>
+    @{ var adminPage = User.IsInRole("Admin") && (ViewContext.RouteData.Values["controller"]?.ToString() is "Admin" or "Management" || (ViewContext.RouteData.Values["controller"]?.ToString() == "Ticket" && ViewContext.RouteData.Values["action"]?.ToString() == "Validate")); }
+    <div class="@(adminPage ? "admin-shell" : "")">
+        @if (adminPage)
+        {
+            <aside class="admin-sidebar" aria-label="Admin sidebar">
+                <div class="eyebrow mb-3">Administration</div>
+                <a asp-controller="Admin" asp-action="Dashboard">Dashboard</a>
+                <a asp-controller="Admin" asp-action="Orders">Orders</a>
+                <a asp-controller="Admin" asp-action="VerificationQueue">Payment verification</a>
+                <a asp-controller="Ticket" asp-action="Validate">Validate ticket</a>
+                <div class="eyebrow mt-4 mb-2">Create and edit</div>
+                <a asp-controller="Management" asp-action="CreateVenue" asp-fragment="tab-catalog">Create a Venue</a>
+                <a asp-controller="Management" asp-action="Index" asp-fragment="tab-concerts">Concerts and schedules</a>
+                <a asp-controller="Management" asp-action="Index" asp-fragment="tab-ticketing">Ticket types and stock</a>
+                <a asp-controller="Management" asp-action="Index" asp-fragment="tab-catalog">Artists</a>
+                <a asp-controller="Management" asp-action="Index" asp-fragment="tab-merch">Merchandise</a>
+            </aside>
+        }
+        <main role="main" class="pb-3 admin-content">@RenderBody()</main>
+    </div>
 </div>
 
 <footer class="border-top site-footer">

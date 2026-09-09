@@ -37,38 +37,18 @@ public class OrderExpirationWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var notifier = scope.ServiceProvider.GetRequiredService<SeatNotifier>();
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await TicketInventory.LockAsync(db);
         var now = DateTime.UtcNow;
         var expiredOrders = await db.Orders
             .Where(o => o.Status == OrderStatus.PendingPayment && o.LockExpiresAt != null && o.LockExpiresAt <= now)
             .ToListAsync(cancellationToken);
-
-        if (expiredOrders.Count == 0)
-        {
-            return;
-        }
-
         foreach (var order in expiredOrders)
         {
             order.Status = OrderStatus.Expired;
-
-            var seats = await db.Seats
-                .Where(s => s.CurrentOrderId == order.Id)
-                .ToListAsync(cancellationToken);
-
-            foreach (var seat in seats)
-            {
-                seat.Status = SeatStatus.Available;
-                seat.CurrentOrderId = null;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-
-            foreach (var seat in seats)
-            {
-                await notifier.NotifySeatStatusAsync(order.ConcertId, seat.Id, SeatStatus.Available);
-            }
-
-            _logger.LogInformation("Order {OrderId} expired and its seats were released.", order.Id);
+            await TicketInventory.ReleaseLegacySeatsAsync(db, order.Id);
         }
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 }

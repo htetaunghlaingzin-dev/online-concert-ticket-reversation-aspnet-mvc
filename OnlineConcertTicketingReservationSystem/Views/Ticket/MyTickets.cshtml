@@ -12,7 +12,7 @@
     <div class="col"><div class="section-card mb-0 d-flex justify-content-between align-items-center @(revoked ? "opacity-75" : "")">
         <div>
             <h5 class="mb-1">@ticket.Order.Concert.Title</h5>
-            <p class="mb-1 text-white-50">Seat @ticket.Seat.Section-@ticket.Seat.Row-@ticket.Seat.SeatNumber</p>
+            <p class="mb-1 text-white-50">@ticket.DisplayType · MMK @ticket.DisplayPrice.ToString("N2")</p>
             <code>@ticket.TicketCode</code>
             @if (revoked)
             {

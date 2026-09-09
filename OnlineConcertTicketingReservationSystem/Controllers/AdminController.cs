@@ -90,20 +90,36 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> OrderDetail(int id)
+    public async Task<IActionResult> OrderDetail(int id, bool popup = false)
     {
         var order = await _db.Orders
+            .Include(o => o.PaymentTransactions)
             .Include(o => o.User)
             .Include(o => o.Concert)
             .Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
-            .Include(o => o.Tickets).ThenInclude(t => t.Seat)
+            .Include(o => o.Tickets).ThenInclude(t => t.Seat).ThenInclude(s => s!.TicketType)
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (order is null) return NotFound();
 
+        var summaries = new List<OrderTicketSummary>();
+        if (order.TicketTypeId.HasValue)
+            summaries.Add(new OrderTicketSummary { Name = order.TicketTypeName ?? "Ticket", Quantity = order.Quantity, UnitPrice = order.UnitPrice });
+        else
+        {
+            var legacy = order.Tickets.Count > 0 ? order.Tickets.Where(t => t.Seat != null).Select(t => t.Seat!).ToList()
+                : await _db.Seats.Include(s => s.TicketType).Where(s => s.CurrentOrderId == order.Id).ToListAsync();
+            summaries = legacy.GroupBy(s => new { Name = s.TicketType?.Name ?? "Legacy ticket", s.Price })
+                .Select(g => new OrderTicketSummary { Name = g.Key.Name, Quantity = g.Count(), UnitPrice = g.Key.Price }).ToList();
+        }
         var model = new OrderDetailViewModel
         {
             Id = order.Id,
+            TicketSummary = summaries,
+            PaymentStatus = order.Status == OrderStatus.Confirmed ? "Paid"
+                : order.PaymentTransactions.Any(p => p.Status == PaymentStatus.Refunded) ? "Refunded"
+                : order.Status == OrderStatus.PendingApproval ? "Awaiting verification"
+                : order.PaymentTransactions.OrderByDescending(p => p.Id).FirstOrDefault()?.Status.ToString() ?? "Not paid",
             ConcertTitle = order.Concert.Title,
             UserName = order.User.Name,
             UserEmail = order.User.Email ?? string.Empty,
@@ -118,25 +134,25 @@ public class AdminController : Controller
             Tickets = order.Tickets.Select(t => new TicketLineViewModel
             {
                 Id = t.Id,
-                SeatLabel = $"{t.Seat.Section}-{t.Seat.Row}-{t.Seat.SeatNumber}",
+                SeatLabel = t.DisplayType,
                 TicketCode = t.TicketCode,
-                Price = t.Seat.Price,
+                Price = t.DisplayPrice,
                 Revoked = t.RevokedAt is not null,
                 RevocationReason = t.RevocationReason
             }).ToList(),
-            AccessorySummaries = order.OrderAccessories.Select(oa => $"{oa.Accessory.Name} x{oa.Quantity} (${oa.UnitPrice} each)").ToList()
+            AccessorySummaries = order.OrderAccessories.Select(oa => $"{oa.Accessory.Name} x{oa.Quantity} (MMK {oa.UnitPrice:N2} each)").ToList()
         };
 
         TempData.TryGetValue("Message", out var message);
         ViewBag.Message = message as string;
-        return View(model);
+        return popup ? PartialView("_OrderDetails", model) : View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelOrder(CancelOrderRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 500)
         {
             TempData["Message"] = "A cancellation reason is required.";
             return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
@@ -144,8 +160,9 @@ public class AdminController : Controller
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
 
+        await TicketInventory.LockAsync(_db);
         var order = await _db.Orders
-            .Include(o => o.Tickets).ThenInclude(t => t.Seat)
+            .Include(o => o.Tickets).ThenInclude(t => t.Seat).ThenInclude(s => s!.TicketType)
             .Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
             .Include(o => o.PaymentTransactions)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId);
@@ -164,11 +181,20 @@ public class AdminController : Controller
 
         foreach (var ticket in order.Tickets)
         {
-            ticket.RevokedAt = DateTime.UtcNow;
-            ticket.Seat.Status = SeatStatus.Available;
-            ticket.Seat.CurrentOrderId = null;
+            await TicketInventory.ReleaseTicketAsync(_db, ticket);
         }
 
+        if (!order.Tickets.Any() && order.TicketTypeId == null)
+        {
+            var legacySeats = await _db.Seats.Where(s => s.CurrentOrderId == order.Id).ToListAsync();
+            foreach (var seat in legacySeats)
+            {
+                if (seat.TicketTypeId is int typeId)
+                    await _db.TicketTypes.Where(t => t.Id == typeId).ExecuteUpdateAsync(set => set.SetProperty(t => t.AvailableStock, t => t.AvailableStock + 1));
+                seat.Status = SeatStatus.Available;
+                seat.CurrentOrderId = null;
+            }
+        }
         foreach (var orderAccessory in order.OrderAccessories)
         {
             orderAccessory.Accessory.StockQuantity += orderAccessory.Quantity;
@@ -184,10 +210,10 @@ public class AdminController : Controller
 
         foreach (var ticket in order.Tickets)
         {
-            await _notifier.NotifySeatStatusAsync(order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
+            if (ticket.Seat != null) await _notifier.NotifySeatStatusAsync(order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
         }
 
-        TempData["Message"] = "Order cancelled, seats released, and merchandise restocked.";
+        TempData["Message"] = "Order cancelled and stock restored.";
         return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
     }
 
@@ -195,7 +221,7 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RevokeTicket(RevokeTicketRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 500)
         {
             TempData["Message"] = "A revocation reason is required.";
             return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
@@ -203,6 +229,7 @@ public class AdminController : Controller
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
 
+        await TicketInventory.LockAsync(_db);
         var ticket = await _db.Tickets
             .Include(t => t.Seat)
             .Include(t => t.Order).ThenInclude(o => o.Tickets)
@@ -223,15 +250,14 @@ public class AdminController : Controller
             return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
         }
 
-        ticket.RevokedAt = DateTime.UtcNow;
+        await TicketInventory.ReleaseTicketAsync(_db, ticket);
         ticket.RevocationReason = request.Reason.Trim();
-        ticket.Seat.Status = SeatStatus.Available;
-        ticket.Seat.CurrentOrderId = null;
-        ticket.Order.TotalAmount = Math.Max(0, ticket.Order.TotalAmount - ticket.Seat.Price);
 
         var allTicketsRevoked = ticket.Order.Tickets.All(t => t.RevokedAt is not null);
         if (allTicketsRevoked)
         {
+            var items = await _db.OrderAccessories.Include(x => x.Accessory).Where(x => x.OrderId == ticket.OrderId).ToListAsync();
+            foreach (var item in items) item.Accessory.StockQuantity += item.Quantity;
             ticket.Order.Status = OrderStatus.Cancelled;
             ticket.Order.CancellationReason = "All tickets in this order were individually revoked.";
             ticket.Order.CancelledAt = DateTime.UtcNow;
@@ -245,11 +271,11 @@ public class AdminController : Controller
         await _db.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        await _notifier.NotifySeatStatusAsync(ticket.Order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
+        if (ticket.Seat != null) await _notifier.NotifySeatStatusAsync(ticket.Order.ConcertId, ticket.Seat.Id, SeatStatus.Available);
 
         TempData["Message"] = allTicketsRevoked
             ? "Ticket revoked. All tickets on this order are now revoked, so the order was cancelled and the payment marked refunded."
-            : "Ticket revoked and its seat released back to sale.";
+            : "Ticket revoked and stock restored.";
         return RedirectToAction(nameof(OrderDetail), new { id = request.OrderId });
     }
 
@@ -275,8 +301,8 @@ public class AdminController : Controller
             UserName = o.User.Name,
             UserEmail = o.User.Email ?? string.Empty,
             ConcertTitle = o.Concert.Title,
-            SeatLabels = seatsByOrder.Where(s => s.CurrentOrderId == o.Id)
-                .Select(s => $"{s.Section}-{s.Row}-{s.SeatNumber}").ToList(),
+            SeatLabels = o.TicketTypeId.HasValue ? new List<string> { $"{o.TicketTypeName} × {o.Quantity} — MMK {o.UnitPrice:N2} each" }
+                : new List<string> { $"Legacy tickets × {seatsByOrder.Count(s => s.CurrentOrderId == o.Id)}" },
             AccessorySummaries = o.OrderAccessories.Select(oa => $"{oa.Accessory.Name} x{oa.Quantity}").ToList(),
             TotalAmount = o.TotalAmount,
             PaymentSlipUrl = o.PaymentSlipUrl,
@@ -293,6 +319,7 @@ public class AdminController : Controller
     {
         await using var transaction = await _db.Database.BeginTransactionAsync();
 
+        await TicketInventory.LockAsync(_db);
         var order = await _db.Orders
             .Include(o => o.OrderAccessories).ThenInclude(oa => oa.Accessory)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId);
@@ -306,35 +333,33 @@ public class AdminController : Controller
 
         if (request.IsApproved)
         {
-            order.Status = OrderStatus.Confirmed;
-
-            foreach (var seat in seats)
+            var error = await TicketInventory.ConfirmAsync(_db, order);
+            if (error is not null)
             {
-                seat.Status = SeatStatus.Booked;
+                await transaction.RollbackAsync();
+                TempData["Message"] = error;
+                return RedirectToAction(nameof(VerificationQueue));
             }
-
-            foreach (var orderAccessory in order.OrderAccessories)
+            _db.PaymentTransactions.Add(new OnlineConcertTicketingReservationSystem.Models.PaymentTransaction
             {
-                orderAccessory.Accessory.StockQuantity =
-                    Math.Max(0, orderAccessory.Accessory.StockQuantity - orderAccessory.Quantity);
-            }
+                OrderId = order.Id, Amount = order.TotalAmount, Reference = $"SLIP-{order.Id}-{Guid.NewGuid():N}",
+                Status = PaymentStatus.Succeeded, CompletedAt = DateTime.UtcNow
+            });
         }
         else
         {
             if (string.IsNullOrWhiteSpace(request.RejectionReason))
             {
                 ModelState.AddModelError(string.Empty, "A rejection reason is required.");
-                return await VerificationQueue();
+                TempData["Message"] = "A rejection reason is required.";
+                return RedirectToAction(nameof(VerificationQueue));
             }
 
             order.Status = OrderStatus.Rejected;
             order.RejectionReason = request.RejectionReason;
 
-            foreach (var seat in seats)
-            {
-                seat.Status = SeatStatus.Available;
-                seat.CurrentOrderId = null;
-            }
+            await TicketInventory.ReleaseLegacySeatsAsync(_db, order.Id);
+
         }
 
         await _db.SaveChangesAsync();

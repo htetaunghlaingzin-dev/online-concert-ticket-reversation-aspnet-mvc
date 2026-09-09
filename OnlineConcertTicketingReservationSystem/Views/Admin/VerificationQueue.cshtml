@@ -3,6 +3,7 @@
     ViewData["Title"] = "Verification Queue";
 }
 
+@if (TempData["Message"] is string message) { <div class="alert alert-info">@message</div> }
 <div class="page-head"><h1>Payment Verification Queue</h1></div>
 
 @if (Model.Count == 0)
@@ -18,12 +19,12 @@
 
             <div class="row">
                 <div class="col-md-6">
-                    <p><strong>Seats:</strong> @string.Join(", ", item.SeatLabels)</p>
+                    <p><strong>Tickets:</strong> @string.Join(", ", item.SeatLabels)</p>
                     @if (item.AccessorySummaries.Count > 0)
                     {
                         <p><strong>Accessories:</strong> @string.Join(", ", item.AccessorySummaries)</p>
                     }
-                    <p><strong>Total:</strong> $@item.TotalAmount</p>
+                    <p><strong>Total:</strong> MMK @item.TotalAmount</p>
                     <p><strong>Transaction Ref:</strong> @item.TransactionRefId</p>
                 </div>
                 <div class="col-md-6">
